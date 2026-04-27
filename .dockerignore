@@ -8,3 +8,14 @@ docs
 .eslintcache
 .gocache
 /web/node_modules
+/data
+/logs
+*.log
+.idea
+.DS_Store
+plan.md
+*_plan.md
+/web/dist
+/web/build
+/web/.vite
+*.test.go
