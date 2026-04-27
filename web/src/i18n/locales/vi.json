@@ -4176,6 +4176,23 @@
     "默认折叠侧边栏": "Mặc định thu gọn thanh bên",
     "默认测试模型": "Mô hình kiểm tra mặc định",
     "默认用户消息": "Xin chào",
-    "默认补全倍率": "Tỷ lệ hoàn thành mặc định"
+    "默认补全倍率": "Tỷ lệ hoàn thành mặc định",
+    "图像尺寸": "Kích thước ảnh",
+    "图像质量": "Chất lượng ảnh",
+    "图像数量": "Số lượng ảnh",
+    "返回格式": "Định dạng phản hồi",
+    "生成图像": "Tạo ảnh",
+    "未输入提示词": "Vui lòng nhập prompt",
+    "生图模型不支持流式": "Mô hình tạo ảnh không hỗ trợ streaming",
+    "图像生成接口没有返回图像": "API tạo ảnh không trả về ảnh",
+    "请输入图像提示词...": "Nhập prompt tạo ảnh...",
+    "标准": "Tiêu chuẩn",
+    "高清": "HD",
+    "低": "Thấp",
+    "中": "Trung bình",
+    "高": "Cao",
+    "不发送": "Không gửi",
+    "URL": "URL",
+    "Base64 JSON": "Base64 JSON"
   }
 }

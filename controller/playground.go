@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
@@ -11,6 +12,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func playgroundRelayFormatByPath(path string) (types.RelayFormat, error) {
+	switch path {
+	case "/pg/chat/completions":
+		return types.RelayFormatOpenAI, nil
+	case "/pg/images/generations":
+		return types.RelayFormatOpenAIImage, nil
+	default:
+		return "", fmt.Errorf("unsupported playground path: %s", path)
+	}
+}
 
 func Playground(c *gin.Context) {
 	var newAPIError *types.NewAPIError
@@ -29,7 +41,13 @@ func Playground(c *gin.Context) {
 		return
 	}
 
-	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatOpenAI, nil, nil)
+	relayFormat, err := playgroundRelayFormatByPath(c.Request.URL.Path)
+	if err != nil {
+		newAPIError = types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusNotFound, types.ErrOptionWithSkipRetry())
+		return
+	}
+
+	relayInfo, err := relaycommon.GenRelayInfo(c, relayFormat, nil, nil)
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 		return
@@ -52,5 +70,5 @@ func Playground(c *gin.Context) {
 	}
 	_ = middleware.SetupContextForToken(c, tempToken)
 
-	Relay(c, types.RelayFormatOpenAI)
+	Relay(c, relayFormat)
 }

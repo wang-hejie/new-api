@@ -3787,6 +3787,24 @@
     "见上方动态计费详情": "See dynamic pricing details above",
     "含时间条件": "Time rules",
     "含请求条件": "Request rules",
-    "（当前仅支持易支付接口，默认使用上方服务器地址作为回调地址！）": "(Currently only supports Epay interface, the default callback address is the server address above!)"
+    "（当前仅支持易支付接口，默认使用上方服务器地址作为回调地址！）": "(Currently only supports Epay interface, the default callback address is the server address above!)",
+    "图像尺寸": "Image size",
+    "图像质量": "Image quality",
+    "图像数量": "Image count",
+    "返回格式": "Response format",
+    "生成图像": "Generate image",
+    "未输入提示词": "Prompt is required",
+    "生图模型不支持流式": "Image generation models do not support streaming",
+    "图像生成接口没有返回图像": "The image generation API returned no image",
+    "请输入图像提示词...": "Enter an image prompt...",
+    "自动": "Auto",
+    "标准": "Standard",
+    "高清": "HD",
+    "低": "Low",
+    "中": "Medium",
+    "高": "High",
+    "不发送": "Do not send",
+    "URL": "URL",
+    "Base64 JSON": "Base64 JSON"
   }
 }

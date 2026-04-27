@@ -4,6 +4,20 @@
 
 This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers (OpenAI, Claude, Gemini, Azure, AWS Bedrock, etc.) behind a unified API, with user management, billing, rate limiting, and an admin dashboard.
 
+## Your standard Workflow
+1. First, think through the problem, read the codebase for relevant files, and write a plan to ./plan.md in Chinese.
+2. The plan should have a list of plan items that you can check off as you complete them.
+3. Before you begin working, check in with me and I will verify the plan.
+4. Then, begin working on the plan items, marking them as complete as you go.
+5. Finally, add a review section to the plan.md file with a summary of the changes you made and any other relevant information.
+
+## 语言规范（不可违反）
+
+1. 只允许使用中文回答 - 所有思考、分析、解释和回答都必须使用中文
+2. 中文优先 - 优先使用中文术语、表达方式和命名规范
+3. 中文注释 - 生成的代码注释和文档都应使用中文
+4. 中文思维 - 思考过程和逻辑分析都使用中文进行
+
 ## Tech Stack
 
 - **Backend**: Go 1.22+, Gin web framework, GORM v2 ORM

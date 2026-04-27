@@ -22,8 +22,10 @@ import { Card, Select, Typography, Button, Switch } from '@douyinfe/semi-ui';
 import { Sparkles, Users, ToggleLeft, X, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { renderGroupOption, selectFilter } from '../../helpers';
+import { ENDPOINT_TYPES } from '../../constants/playground.constants';
 import ParameterControl from './ParameterControl';
 import ImageUrlInput from './ImageUrlInput';
+import ImageParameterControl from './ImageParameterControl';
 import ConfigManager from './ConfigManager';
 import CustomRequestEditor from './CustomRequestEditor';
 
@@ -36,6 +38,7 @@ const SettingsPanel = ({
   showDebugPanel,
   customRequestMode,
   customRequestBody,
+  endpointType,
   onInputChange,
   onParameterToggle,
   onCloseSettings,
@@ -47,6 +50,7 @@ const SettingsPanel = ({
   messages,
 }) => {
   const { t } = useTranslation();
+  const isImageGeneration = endpointType === ENDPOINT_TYPES.IMAGE_GENERATION;
 
   const currentConfig = {
     inputs,
@@ -176,54 +180,64 @@ const SettingsPanel = ({
           />
         </div>
 
-        {/* 图片URL输入 */}
-        <div className={customRequestMode ? 'opacity-50' : ''}>
-          <ImageUrlInput
-            imageUrls={inputs.imageUrls}
-            imageEnabled={inputs.imageEnabled}
-            onImageUrlsChange={(urls) => onInputChange('imageUrls', urls)}
-            onImageEnabledChange={(enabled) =>
-              onInputChange('imageEnabled', enabled)
-            }
-            disabled={customRequestMode}
-          />
-        </div>
-
-        {/* 参数控制组件 */}
-        <div className={customRequestMode ? 'opacity-50' : ''}>
-          <ParameterControl
+        {isImageGeneration ? (
+          <ImageParameterControl
             inputs={inputs}
-            parameterEnabled={parameterEnabled}
             onInputChange={onInputChange}
-            onParameterToggle={onParameterToggle}
             disabled={customRequestMode}
           />
-        </div>
-
-        {/* 流式输出开关 */}
-        <div className={customRequestMode ? 'opacity-50' : ''}>
-          <div className='flex items-center justify-between'>
-            <div className='flex items-center gap-2'>
-              <ToggleLeft size={16} className='text-gray-500' />
-              <Typography.Text strong className='text-sm'>
-                {t('流式输出')}
-              </Typography.Text>
-              {customRequestMode && (
-                <Typography.Text className='text-xs text-orange-600'>
-                  ({t('已在自定义模式中忽略')})
-                </Typography.Text>
-              )}
+        ) : (
+          <>
+            {/* 图片URL输入 */}
+            <div className={customRequestMode ? 'opacity-50' : ''}>
+              <ImageUrlInput
+                imageUrls={inputs.imageUrls}
+                imageEnabled={inputs.imageEnabled}
+                onImageUrlsChange={(urls) => onInputChange('imageUrls', urls)}
+                onImageEnabledChange={(enabled) =>
+                  onInputChange('imageEnabled', enabled)
+                }
+                disabled={customRequestMode}
+              />
             </div>
-            <Switch
-              checked={inputs.stream}
-              onChange={(checked) => onInputChange('stream', checked)}
-              checkedText={t('开')}
-              uncheckedText={t('关')}
-              size='small'
-              disabled={customRequestMode}
-            />
-          </div>
-        </div>
+
+            {/* 参数控制组件 */}
+            <div className={customRequestMode ? 'opacity-50' : ''}>
+              <ParameterControl
+                inputs={inputs}
+                parameterEnabled={parameterEnabled}
+                onInputChange={onInputChange}
+                onParameterToggle={onParameterToggle}
+                disabled={customRequestMode}
+              />
+            </div>
+
+            {/* 流式输出开关 */}
+            <div className={customRequestMode ? 'opacity-50' : ''}>
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-2'>
+                  <ToggleLeft size={16} className='text-gray-500' />
+                  <Typography.Text strong className='text-sm'>
+                    {t('流式输出')}
+                  </Typography.Text>
+                  {customRequestMode && (
+                    <Typography.Text className='text-xs text-orange-600'>
+                      ({t('已在自定义模式中忽略')})
+                    </Typography.Text>
+                  )}
+                </div>
+                <Switch
+                  checked={inputs.stream}
+                  onChange={(checked) => onInputChange('stream', checked)}
+                  checkedText={t('开')}
+                  uncheckedText={t('关')}
+                  size='small'
+                  disabled={customRequestMode}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 桌面端的配置管理放在底部 */}

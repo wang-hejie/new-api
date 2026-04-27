@@ -76,8 +76,14 @@ export const DEBUG_TABS = {
 // ========== API 相关常量 ==========
 export const API_ENDPOINTS = {
   CHAT_COMPLETIONS: '/pg/chat/completions',
-  USER_MODELS: '/api/user/models',
+  IMAGES_GENERATIONS: '/pg/images/generations',
+  USER_MODELS: '/api/user/playground/models',
   USER_GROUPS: '/api/user/self/groups',
+};
+
+export const ENDPOINT_TYPES = {
+  OPENAI: 'openai',
+  IMAGE_GENERATION: 'image-generation',
 };
 
 // ========== 配置默认值 ==========
@@ -94,6 +100,10 @@ export const DEFAULT_CONFIG = {
     stream: true,
     imageEnabled: false,
     imageUrls: [''],
+    prompt_size: '1024x1024',
+    prompt_quality: 'auto',
+    prompt_n: 1,
+    prompt_response_format: '',
   },
   parameterEnabled: {
     temperature: true,

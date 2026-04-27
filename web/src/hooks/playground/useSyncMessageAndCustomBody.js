@@ -18,7 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { useCallback, useRef } from 'react';
-import { MESSAGE_ROLES } from '../../constants/playground.constants';
+import {
+  ENDPOINT_TYPES,
+  MESSAGE_ROLES,
+} from '../../constants/playground.constants';
 
 export const useSyncMessageAndCustomBody = (
   customRequestMode,
@@ -28,6 +31,7 @@ export const useSyncMessageAndCustomBody = (
   setCustomRequestBody,
   setMessage,
   debouncedSaveConfig,
+  endpointType,
 ) => {
   const isUpdatingFromMessage = useRef(false);
   const isUpdatingFromCustomBody = useRef(false);
@@ -55,6 +59,7 @@ export const useSyncMessageAndCustomBody = (
 
   const syncMessageToCustomBody = useCallback(() => {
     if (!customRequestMode || isUpdatingFromCustomBody.current) return;
+    if (endpointType === ENDPOINT_TYPES.IMAGE_GENERATION) return;
 
     const currentMessageHash = getMessageHash(message);
     if (currentMessageHash === lastMessageHash.current) return;
@@ -101,10 +106,12 @@ export const useSyncMessageAndCustomBody = (
     getCustomBodyHash,
     setCustomRequestBody,
     debouncedSaveConfig,
+    endpointType,
   ]);
 
   const syncCustomBodyToMessage = useCallback(() => {
     if (!customRequestMode || isUpdatingFromMessage.current) return;
+    if (endpointType === ENDPOINT_TYPES.IMAGE_GENERATION) return;
 
     const currentCustomBodyHash = getCustomBodyHash(customRequestBody);
     if (currentCustomBodyHash === lastCustomBodyHash.current) return;
@@ -140,6 +147,7 @@ export const useSyncMessageAndCustomBody = (
     getCustomBodyHash,
     getMessageHash,
     setMessage,
+    endpointType,
   ]);
 
   return {

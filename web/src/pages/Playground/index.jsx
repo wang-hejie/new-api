@@ -36,6 +36,7 @@ import { useDataLoader } from '../../hooks/playground/useDataLoader';
 
 // Constants and utils
 import {
+  ENDPOINT_TYPES,
   MESSAGE_ROLES,
   ERROR_MESSAGES,
 } from '../../constants/playground.constants';
@@ -46,7 +47,7 @@ import {
   createMessage,
   createLoadingAssistantMessage,
   getTextContent,
-  buildApiPayload,
+  buildPayloadByEndpoint,
   encodeToBase64,
 } from '../../helpers';
 
@@ -91,6 +92,7 @@ const Playground = () => {
     showDebugPanel,
     customRequestMode,
     customRequestBody,
+    endpointType,
     showSettings,
     models,
     groups,
@@ -146,6 +148,7 @@ const Playground = () => {
     parameterEnabled,
     sendRequest,
     saveMessagesImmediately,
+    endpointType,
   );
 
   // 消息和自定义请求体同步
@@ -158,6 +161,7 @@ const Playground = () => {
       setCustomRequestBody,
       setMessage,
       debouncedSaveConfig,
+      endpointType,
     );
 
   // 角色信息
@@ -201,6 +205,7 @@ const Playground = () => {
 
       // 如果存在用户消息
       if (
+        endpointType !== ENDPOINT_TYPES.IMAGE_GENERATION &&
         !(
           messages.length === 0 ||
           messages.every((msg) => msg.role !== MESSAGE_ROLES.USER)
@@ -228,16 +233,37 @@ const Playground = () => {
         }
       }
 
-      return buildApiPayload(messages, null, inputs, parameterEnabled);
+      return buildPayloadByEndpoint(
+        endpointType,
+        messages,
+        null,
+        inputs,
+        parameterEnabled,
+      );
     } catch (error) {
       console.error('构造预览请求体失败:', error);
       return null;
     }
-  }, [inputs, parameterEnabled, message, customRequestMode, customRequestBody]);
+  }, [
+    inputs,
+    parameterEnabled,
+    message,
+    customRequestMode,
+    customRequestBody,
+    endpointType,
+  ]);
 
   // 发送消息
   function onMessageSend(content, attachment) {
     console.log('attachment: ', attachment);
+
+    const isImageGeneration = endpointType === ENDPOINT_TYPES.IMAGE_GENERATION;
+    const textContent = typeof content === 'string' ? content.trim() : '';
+
+    if (isImageGeneration && !customRequestMode && !textContent) {
+      Toast.warning(t('未输入提示词'));
+      return;
+    }
 
     // 创建用户消息和加载消息
     const userMessage = createMessage(MESSAGE_ROLES.USER, content);
@@ -252,7 +278,11 @@ const Playground = () => {
           const newMessages = [...prevMessage, userMessage, loadingMessage];
 
           // 发送自定义请求体
-          sendRequest(customPayload, customPayload.stream !== false);
+          sendRequest(
+            customPayload,
+            customPayload.stream !== false,
+            endpointType,
+          );
 
           // 发送消息后保存，传入新消息列表
           setTimeout(() => saveMessagesImmediately(newMessages), 0);
@@ -268,11 +298,13 @@ const Playground = () => {
     }
 
     // 默认模式
-    const validImageUrls = inputs.imageUrls.filter((url) => url.trim() !== '');
+    const validImageUrls = isImageGeneration
+      ? []
+      : inputs.imageUrls.filter((url) => url.trim() !== '');
     const messageContent = buildMessageContent(
       content,
       validImageUrls,
-      inputs.imageEnabled,
+      inputs.imageEnabled && !isImageGeneration,
     );
     const userMessageWithImages = createMessage(
       MESSAGE_ROLES.USER,
@@ -282,16 +314,17 @@ const Playground = () => {
     setMessage((prevMessage) => {
       const newMessages = [...prevMessage, userMessageWithImages];
 
-      const payload = buildApiPayload(
+      const payload = buildPayloadByEndpoint(
+        endpointType,
         newMessages,
         null,
         inputs,
         parameterEnabled,
       );
-      sendRequest(payload, inputs.stream);
+      sendRequest(payload, inputs.stream, endpointType);
 
       // 禁用图片模式
-      if (inputs.imageEnabled) {
+      if (inputs.imageEnabled || isImageGeneration) {
         setTimeout(() => {
           handleInputChange('imageEnabled', false);
         }, 100);
@@ -440,21 +473,26 @@ const Playground = () => {
   // 处理粘贴图片
   const handlePasteImage = useCallback(
     (base64Data) => {
-      if (!inputs.imageEnabled) {
+      if (
+        !inputs.imageEnabled ||
+        endpointType === ENDPOINT_TYPES.IMAGE_GENERATION
+      ) {
         return;
       }
       // 添加图片到 imageUrls 数组
       const newUrls = [...(inputs.imageUrls || []), base64Data];
       handleInputChange('imageUrls', newUrls);
     },
-    [inputs.imageEnabled, inputs.imageUrls, handleInputChange],
+    [inputs.imageEnabled, inputs.imageUrls, endpointType, handleInputChange],
   );
 
   // Playground Context 值
   const playgroundContextValue = {
     onPasteImage: handlePasteImage,
     imageUrls: inputs.imageUrls || [],
-    imageEnabled: inputs.imageEnabled || false,
+    imageEnabled:
+      (inputs.imageEnabled || false) &&
+      endpointType !== ENDPOINT_TYPES.IMAGE_GENERATION,
   };
 
   return (
@@ -483,6 +521,7 @@ const Playground = () => {
                 showDebugPanel={showDebugPanel}
                 customRequestMode={customRequestMode}
                 customRequestBody={customRequestBody}
+                endpointType={endpointType}
                 onInputChange={handleInputChange}
                 onParameterToggle={handleParameterToggle}
                 onCloseSettings={() => setShowSettings(false)}
@@ -515,6 +554,7 @@ const Playground = () => {
                   onToggleDebugPanel={() => setShowDebugPanel(!showDebugPanel)}
                   renderCustomChatContent={renderCustomChatContent}
                   renderChatBoxAction={renderChatBoxAction}
+                  endpointType={endpointType}
                 />
               </div>
 

@@ -22,6 +22,7 @@ import { Card, Chat, Typography, Button } from '@douyinfe/semi-ui';
 import { MessageSquare, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import CustomInputRender from './CustomInputRender';
+import { ENDPOINT_TYPES } from '../../constants/playground.constants';
 
 const ChatArea = ({
   chatRef,
@@ -39,8 +40,10 @@ const ChatArea = ({
   onToggleDebugPanel,
   renderCustomChatContent,
   renderChatBoxAction,
+  endpointType,
 }) => {
   const { t } = useTranslation();
+  const isImageGeneration = endpointType === ENDPOINT_TYPES.IMAGE_GENERATION;
 
   const renderInputArea = React.useCallback((props) => {
     return <CustomInputRender {...props} />;
@@ -70,7 +73,7 @@ const ChatArea = ({
               </div>
               <div>
                 <Typography.Title heading={5} className='!text-white mb-0'>
-                  {t('AI 对话')}
+                  {isImageGeneration ? t('生成图像') : t('AI 对话')}
                 </Typography.Title>
                 <Typography.Text className='!text-white/80 text-sm hidden sm:inline'>
                   {inputs.model || t('选择模型开始对话')}
@@ -119,7 +122,11 @@ const ChatArea = ({
           onStopGenerator={onStopGenerator}
           onClear={onClearMessages}
           className='h-full'
-          placeholder={t('请输入您的问题...')}
+          placeholder={
+            isImageGeneration
+              ? t('请输入图像提示词...')
+              : t('请输入您的问题...')
+          }
         />
       </div>
     </Card>

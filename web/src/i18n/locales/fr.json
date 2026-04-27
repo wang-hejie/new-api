@@ -3642,6 +3642,24 @@
     "默认折叠侧边栏": "Réduire la barre latérale par défaut",
     "默认测试模型": "Modèle de test par défaut",
     "默认用户消息": "Bonjour",
-    "默认补全倍率": "Taux de complétion par défaut"
+    "默认补全倍率": "Taux de complétion par défaut",
+    "图像尺寸": "Taille de l’image",
+    "图像质量": "Qualité de l’image",
+    "图像数量": "Nombre d’images",
+    "返回格式": "Format de réponse",
+    "生成图像": "Générer une image",
+    "未输入提示词": "Le prompt est requis",
+    "生图模型不支持流式": "Les modèles de génération d’images ne prennent pas en charge le streaming",
+    "图像生成接口没有返回图像": "L’API de génération d’images n’a renvoyé aucune image",
+    "请输入图像提示词...": "Saisissez un prompt d’image...",
+    "自动": "Auto",
+    "标准": "Standard",
+    "高清": "HD",
+    "低": "Bas",
+    "中": "Moyen",
+    "高": "Élevé",
+    "不发送": "Ne pas envoyer",
+    "URL": "URL",
+    "Base64 JSON": "Base64 JSON"
   }
 }

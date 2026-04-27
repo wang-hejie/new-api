@@ -542,6 +542,50 @@ func GetUserModels(c *gin.Context) {
 	return
 }
 
+type PlaygroundModelInfo struct {
+	Name          string                  `json:"name"`
+	EndpointTypes []constant.EndpointType `json:"endpoint_types"`
+}
+
+func GetUserPlaygroundModels(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		id = c.GetInt("id")
+	}
+	user, err := model.GetUserCache(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	// Warm pricing and endpoint metadata caches before reading endpoint types.
+	model.GetPricing()
+
+	groups := service.GetUserUsableGroups(user.Group)
+	modelNames := make([]string, 0)
+	for group := range groups {
+		for _, g := range model.GetGroupEnabledModels(group) {
+			if !common.StringsContains(modelNames, g) {
+				modelNames = append(modelNames, g)
+			}
+		}
+	}
+
+	models := make([]PlaygroundModelInfo, 0, len(modelNames))
+	for _, modelName := range modelNames {
+		models = append(models, PlaygroundModelInfo{
+			Name:          modelName,
+			EndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    models,
+	})
+}
+
 func UpdateUser(c *gin.Context) {
 	var updatedUser model.User
 	err := json.NewDecoder(c.Request.Body).Decode(&updatedUser)

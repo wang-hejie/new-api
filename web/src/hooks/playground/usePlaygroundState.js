@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DEFAULT_MESSAGES,
@@ -33,6 +33,10 @@ import {
   saveMessages,
 } from '../../components/playground/configStorage';
 import { processIncompleteThinkTags } from '../../helpers';
+import {
+  getEndpointTypeForModel,
+  getEndpointTypeFromCustomBody,
+} from '../../helpers';
 
 export const usePlaygroundState = () => {
   const { t } = useTranslation();
@@ -89,6 +93,29 @@ export const usePlaygroundState = () => {
   const [message, setMessage] = useState(
     () => initialMessages || getDefaultMessages(t),
   );
+
+  const selectedEndpointType = useMemo(
+    () => getEndpointTypeForModel(models, inputs.model),
+    [models, inputs.model],
+  );
+
+  const endpointType = useMemo(() => {
+    if (!customRequestMode) {
+      return selectedEndpointType;
+    }
+
+    return getEndpointTypeFromCustomBody(
+      customRequestBody,
+      models,
+      inputs.model,
+    );
+  }, [
+    customRequestMode,
+    customRequestBody,
+    models,
+    inputs.model,
+    selectedEndpointType,
+  ]);
 
   // 当语言改变时，如果是默认消息则更新
   useEffect(() => {
@@ -162,6 +189,8 @@ export const usePlaygroundState = () => {
     showDebugPanel,
     customRequestMode,
     customRequestBody,
+    endpointType,
+    selectedEndpointType,
   ]);
 
   // 配置导入/重置
@@ -261,6 +290,8 @@ export const usePlaygroundState = () => {
     showDebugPanel,
     customRequestMode,
     customRequestBody,
+    endpointType,
+    selectedEndpointType,
 
     // UI状态
     showSettings,

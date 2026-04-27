@@ -22,7 +22,7 @@ import { Toast, Modal } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import {
   getTextContent,
-  buildApiPayload,
+  buildPayloadByEndpoint,
   createLoadingAssistantMessage,
 } from '../../helpers';
 import { MESSAGE_ROLES } from '../../constants/playground.constants';
@@ -33,6 +33,7 @@ export const useMessageEdit = (
   parameterEnabled,
   sendRequest,
   saveMessages,
+  endpointType,
 ) => {
   const { t } = useTranslation();
   const [editingMessageId, setEditingMessageId] = useState(null);
@@ -97,7 +98,8 @@ export const useMessageEdit = (
               setTimeout(() => saveMessages(messagesUntilUser), 0);
 
               setTimeout(() => {
-                const payload = buildApiPayload(
+                const payload = buildPayloadByEndpoint(
+                  endpointType,
                   messagesUntilUser,
                   null,
                   inputs,
@@ -107,7 +109,7 @@ export const useMessageEdit = (
                   ...prevMsg,
                   createLoadingAssistantMessage(),
                 ]);
-                sendRequest(payload, inputs.stream);
+                sendRequest(payload, inputs.stream, endpointType);
               }, 100);
             },
             onCancel: () => {
@@ -138,6 +140,7 @@ export const useMessageEdit = (
     sendRequest,
     setMessage,
     saveMessages,
+    endpointType,
   ]);
 
   const handleEditCancel = useCallback(() => {
