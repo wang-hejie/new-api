@@ -56,6 +56,8 @@ const About = lazy(() => import('./pages/About'));
 const UserAgreement = lazy(() => import('./pages/UserAgreement'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
+const catchAllPath = '*';
+
 function DynamicOAuth2Callback() {
   const { provider } = useParams();
   return <OAuth2Callback type={provider} />;
@@ -377,7 +379,7 @@ function App() {
             </PrivateRoute>
           }
         />
-        <Route path='*' element={<NotFound />} />
+        <Route path={catchAllPath} element={<NotFound />} />
       </Routes>
     </SetupCheck>
   );

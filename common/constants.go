@@ -142,6 +142,13 @@ const (
 	RequestIdKey = "X-Oneapi-Request-Id"
 )
 
+type ContextKey string
+
+const (
+	RequestIdContextKey ContextKey = "request_id"
+	RelayStopChanKey    ContextKey = "relay_stop_chan"
+)
+
 const (
 	RoleGuestUser  = 0
 	RoleCommonUser = 1

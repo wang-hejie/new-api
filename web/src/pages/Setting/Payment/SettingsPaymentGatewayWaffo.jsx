@@ -42,6 +42,9 @@ import { BookOpen, TriangleAlert } from 'lucide-react';
 
 const { Text } = Typography;
 const toBoolean = (value) => value === true || value === 'true';
+const defaultWaffoCurrency = 'USD';
+const iconPreviewAlt = 'preview';
+const cardPaymentPlaceholder = 'CREDITCARD,DEBITCARD';
 
 export default function SettingsPaymentGatewayWaffo(props) {
   const { t } = useTranslation();
@@ -57,7 +60,7 @@ export default function SettingsPaymentGatewayWaffo(props) {
     WaffoSandboxPrivateKey: '',
     WaffoSandbox: false,
     WaffoMerchantId: '',
-    WaffoCurrency: 'USD',
+    WaffoCurrency: defaultWaffoCurrency,
     WaffoUnitPrice: 1.0,
     WaffoMinTopUp: 1,
     WaffoNotifyUrl: '',
@@ -109,7 +112,7 @@ export default function SettingsPaymentGatewayWaffo(props) {
         WaffoSandboxPrivateKey: props.options.WaffoSandboxPrivateKey || '',
         WaffoSandbox: toBoolean(props.options.WaffoSandbox),
         WaffoMerchantId: props.options.WaffoMerchantId || '',
-        WaffoCurrency: props.options.WaffoCurrency || 'USD',
+        WaffoCurrency: props.options.WaffoCurrency || defaultWaffoCurrency,
         WaffoUnitPrice: parseFloat(props.options.WaffoUnitPrice) || 1.0,
         WaffoMinTopUp: parseInt(props.options.WaffoMinTopUp) || 1,
         WaffoNotifyUrl: props.options.WaffoNotifyUrl || '',
@@ -310,7 +313,7 @@ export default function SettingsPaymentGatewayWaffo(props) {
         text ? (
           <img
             src={text}
-            alt='icon'
+            alt={t('图标')}
             style={{ width: 24, height: 24, objectFit: 'contain' }}
           />
         ) : (
@@ -363,11 +366,11 @@ export default function SettingsPaymentGatewayWaffo(props) {
             icon={<BookOpen size={16} />}
             description={
               <>
-                Waffo 密钥、商户和支付方式等设置请
+                {t('Waffo 密钥、商户和支付方式等设置请')}
                 <a href='https://waffo.com' target='_blank' rel='noreferrer'>
-                  点击此处
+                  {t('点击此处')}
                 </a>
-                进行配置，切换沙盒模式时请同步填写对应环境的密钥。
+                {t('进行配置，切换沙盒模式时请同步填写对应环境的密钥。')}
                 <br />
                 {t('回调地址')}：
                 {props.options.ServerAddress
@@ -505,7 +508,7 @@ export default function SettingsPaymentGatewayWaffo(props) {
               <Form.Input
                 field='WaffoCurrency'
                 label={t('货币')}
-                placeholder='USD'
+                placeholder={defaultWaffoCurrency}
                 extraText={t('Waffo 当前使用 USD 结算')}
                 disabled
               />
@@ -619,7 +622,7 @@ export default function SettingsPaymentGatewayWaffo(props) {
               {payMethodForm.icon && (
                 <img
                   src={payMethodForm.icon}
-                  alt='preview'
+                  alt={iconPreviewAlt}
                   style={{
                     width: 32,
                     height: 32,
@@ -669,7 +672,7 @@ export default function SettingsPaymentGatewayWaffo(props) {
               onChange={(val) =>
                 setPayMethodForm({ ...payMethodForm, payMethodType: val })
               }
-              placeholder='CREDITCARD,DEBITCARD'
+              placeholder={cardPaymentPlaceholder}
               maxLength={64}
             />
             <Text type='tertiary' size='small'>

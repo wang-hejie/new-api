@@ -26,10 +26,12 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const { Title, Text, Paragraph } = Typography;
 
 const TwoFAVerification = ({ onSuccess, onBack, isModal = false }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [useBackupCode, setUseBackupCode] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -81,7 +83,7 @@ const TwoFAVerification = ({ onSuccess, onBack, isModal = false }) => {
     return (
       <div className='space-y-4'>
         <Paragraph className='text-gray-600 dark:text-gray-300'>
-          请输入认证器应用显示的验证码完成登录
+          {t('请输入认证器应用显示的验证码完成登录')}
         </Paragraph>
 
         <Form onSubmit={handleSubmit}>
@@ -105,7 +107,7 @@ const TwoFAVerification = ({ onSuccess, onBack, isModal = false }) => {
             size='large'
             style={{ marginBottom: 16 }}
           >
-            验证并登录
+            {t('验证并登录')}
           </Button>
         </Form>
 
@@ -131,19 +133,20 @@ const TwoFAVerification = ({ onSuccess, onBack, isModal = false }) => {
               onClick={onBack}
               style={{ color: '#1890ff', padding: 0 }}
             >
-              返回登录
+              {t('返回登录')}
             </Button>
           )}
         </div>
 
         <div className='bg-gray-50 dark:bg-gray-800 rounded-lg p-3'>
           <Text size='small' type='secondary'>
-            <strong>提示：</strong>
+            <strong>{t('提示：')}</strong>
             <br />
-            • 验证码每30秒更新一次
+            {t('• 验证码每30秒更新一次')}
             <br />
-            • 如果无法获取验证码，请使用备用码
-            <br />• 每个备用码只能使用一次
+            {t('• 如果无法获取验证码，请使用备用码')}
+            <br />
+            {t('• 每个备用码只能使用一次')}
           </Text>
         </div>
       </div>
@@ -161,9 +164,9 @@ const TwoFAVerification = ({ onSuccess, onBack, isModal = false }) => {
     >
       <Card style={{ width: 400, padding: 24 }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title heading={3}>两步验证</Title>
+          <Title heading={3}>{t('两步验证')}</Title>
           <Paragraph type='secondary'>
-            请输入认证器应用显示的验证码完成登录
+            {t('请输入认证器应用显示的验证码完成登录')}
           </Paragraph>
         </div>
 
@@ -188,7 +191,7 @@ const TwoFAVerification = ({ onSuccess, onBack, isModal = false }) => {
             size='large'
             style={{ marginBottom: 16 }}
           >
-            验证并登录
+            {t('验证并登录')}
           </Button>
         </Form>
 
@@ -214,7 +217,7 @@ const TwoFAVerification = ({ onSuccess, onBack, isModal = false }) => {
               onClick={onBack}
               style={{ color: '#1890ff', padding: 0 }}
             >
-              返回登录
+              {t('返回登录')}
             </Button>
           )}
         </div>
@@ -228,12 +231,13 @@ const TwoFAVerification = ({ onSuccess, onBack, isModal = false }) => {
           }}
         >
           <Text size='small' type='secondary'>
-            <strong>提示：</strong>
+            <strong>{t('提示：')}</strong>
             <br />
-            • 验证码每30秒更新一次
+            {t('• 验证码每30秒更新一次')}
             <br />
-            • 如果无法获取验证码，请使用备用码
-            <br />• 每个备用码只能使用一次
+            {t('• 如果无法获取验证码，请使用备用码')}
+            <br />
+            {t('• 每个备用码只能使用一次')}
           </Text>
         </div>
       </Card>

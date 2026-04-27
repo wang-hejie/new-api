@@ -98,7 +98,7 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	}
 
 	// Reuse Creem checkout generator by building a lightweight product reference.
-	currency := "USD"
+	var currency string
 	switch operation_setting.GetGeneralSetting().QuotaDisplayType {
 	case operation_setting.QuotaDisplayTypeCNY:
 		currency = "CNY"

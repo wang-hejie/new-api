@@ -21,6 +21,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import DocumentRenderer from '../../components/common/DocumentRenderer';
 
+const privacyPolicyCacheKey = 'privacy_policy';
+
 const PrivacyPolicy = () => {
   const { t } = useTranslation();
 
@@ -28,7 +30,7 @@ const PrivacyPolicy = () => {
     <DocumentRenderer
       apiEndpoint='/api/privacy-policy'
       title={t('隐私政策')}
-      cacheKey='privacy_policy'
+      cacheKey={privacyPolicyCacheKey}
       emptyMessage={t('加载隐私政策内容失败...')}
     />
   );

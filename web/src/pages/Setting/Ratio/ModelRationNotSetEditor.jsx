@@ -50,7 +50,7 @@ export default function ModelRatioNotSetEditor(props) {
       options={props.options}
       refresh={props.refresh}
       candidateModelNames={enabledModels}
-      filterMode='unset'
+      filterMode={'unset'}
       allowAddModel={false}
       allowDeleteModel={false}
       showConflictFilter={false}

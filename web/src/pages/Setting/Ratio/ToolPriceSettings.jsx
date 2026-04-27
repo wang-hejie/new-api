@@ -35,11 +35,12 @@ import { API, copy, showError, showSuccess } from '../../../helpers';
 const { Text } = Typography;
 
 const OPTION_KEY = 'tool_price_setting.prices';
+const WEB_SEARCH_GPT4O_PREVIEW_KEY = 'web_search_preview:gpt-4o*';
 
 const DEFAULT_PRICES = {
   web_search: 10.0,
   web_search_preview: 10.0,
-  'web_search_preview:gpt-4o*': 25.0,
+  [WEB_SEARCH_GPT4O_PREVIEW_KEY]: 25.0,
   'web_search_preview:gpt-4.1*': 25.0,
   'web_search_preview:gpt-4o-mini*': 25.0,
   'web_search_preview:gpt-4.1-mini*': 25.0,
@@ -102,7 +103,11 @@ export default function ToolPriceSettings({ options }) {
     setJsonText(text);
     try {
       const parsed = JSON.parse(text);
-      if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+      if (
+        typeof parsed !== 'object' ||
+        Array.isArray(parsed) ||
+        parsed === null
+      ) {
         setJsonError(t('JSON 必须是对象'));
         return;
       }
@@ -157,7 +162,7 @@ export default function ToolPriceSettings({ options }) {
       render: (text, record) => (
         <Input
           value={text}
-          placeholder='web_search_preview:gpt-4o*'
+          placeholder={WEB_SEARCH_GPT4O_PREVIEW_KEY}
           onChange={(val) => updateRow(record.id, 'key', val)}
           style={{ width: '100%' }}
         />
@@ -198,11 +203,15 @@ export default function ToolPriceSettings({ options }) {
         type='info'
         description={
           <>
-            <div>{t('配置各工具的调用价格（$/1K次调用）。按次计费模型不额外收取工具费用。')}</div>
+            <div>
+              {t(
+                '配置各工具的调用价格（$/1K次调用）。按次计费模型不额外收取工具费用。',
+              )}
+            </div>
             <div style={{ marginTop: 4 }}>
               <Text strong>{t('格式')}：</Text>
               <code>web_search_preview</code> {t('为默认价格')}，
-              <code>web_search_preview:gpt-4o*</code> {t('为模型前缀覆盖')}
+              <code>{WEB_SEARCH_GPT4O_PREVIEW_KEY}</code> {t('为模型前缀覆盖')}
             </div>
           </>
         }
@@ -217,7 +226,7 @@ export default function ToolPriceSettings({ options }) {
         style={{ marginBottom: 12 }}
       >
         <Radio value='visual'>{t('可视化')}</Radio>
-        <Radio value='json'>JSON</Radio>
+        <Radio value='json'>{t('JSON')}</Radio>
       </RadioGroup>
 
       {mode === 'visual' ? (
@@ -247,7 +256,11 @@ export default function ToolPriceSettings({ options }) {
             style={{ fontFamily: 'monospace', fontSize: 13 }}
           />
           {jsonError && (
-            <Text type='danger' size='small' style={{ display: 'block', marginTop: 4 }}>
+            <Text
+              type='danger'
+              size='small'
+              style={{ display: 'block', marginTop: 4 }}
+            >
               {jsonError}
             </Text>
           )}
@@ -256,7 +269,9 @@ export default function ToolPriceSettings({ options }) {
               icon={<IconCopy />}
               size='small'
               theme='borderless'
-              onClick={() => { copy(jsonText, t('JSON')); }}
+              onClick={() => {
+                copy(jsonText, t('JSON'));
+              }}
             >
               {t('复制')}
             </Button>
@@ -267,7 +282,9 @@ export default function ToolPriceSettings({ options }) {
         </>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}
+      >
         <Button
           theme='solid'
           type='primary'

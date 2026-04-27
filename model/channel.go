@@ -164,8 +164,6 @@ func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
 			}
 			if !common.MemoryCacheEnabled {
 				_ = channel.SaveChannelInfo()
-			} else {
-				// CacheUpdateChannel(channel)
 			}
 		}()
 		// Start from the saved polling index and look for the next enabled key
@@ -340,7 +338,7 @@ func SearchChannels(keyword string, group string, model string, idSort bool) ([]
 
 func GetChannelById(id int, selectAll bool) (*Channel, error) {
 	channel := &Channel{Id: id}
-	var err error = nil
+	var err error
 	if selectAll {
 		err = DB.First(channel, "id = ?", id).Error
 	} else {
@@ -348,9 +346,6 @@ func GetChannelById(id int, selectAll bool) (*Channel, error) {
 	}
 	if err != nil {
 		return nil, err
-	}
-	if channel == nil {
-		return nil, errors.New("channel not found")
 	}
 	return channel, nil
 }

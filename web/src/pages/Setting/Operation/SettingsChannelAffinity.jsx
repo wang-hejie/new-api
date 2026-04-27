@@ -601,7 +601,7 @@ export default function SettingsChannelAffinity(props) {
       render: (_, record) => {
         const name = (record?.name || '').trim();
         if (!name || !record?.include_rule_name) {
-          return <Text type='tertiary'>N/A</Text>;
+          return <Text type='tertiary'>{'N/A'}</Text>;
         }
         const n = Number(cacheStats?.by_rule_name?.[name] || 0);
         return <Text>{n}</Text>;
@@ -942,7 +942,7 @@ export default function SettingsChannelAffinity(props) {
                   field={KEY_MAX_ENTRIES}
                   label={t('最大条目数')}
                   min={0}
-                  placeholder='例如 100000…'
+                  placeholder={t('例如 100000…')}
                   extraText={
                     <Text type='tertiary' size='small'>
                       {t(
@@ -963,7 +963,7 @@ export default function SettingsChannelAffinity(props) {
                   field={KEY_DEFAULT_TTL}
                   label={t('默认 TTL（秒）')}
                   min={0}
-                  placeholder='例如 3600…'
+                  placeholder={t('例如 3600…')}
                   extraText={
                     <Text type='tertiary' size='small'>
                       {t(
@@ -1095,7 +1095,7 @@ export default function SettingsChannelAffinity(props) {
             field='name'
             label={t('名称')}
             extraText={t('规则名称（可读性更好，也会出现在管理侧日志中）。')}
-            placeholder='例如 prefer-by-conversation-id…'
+            placeholder={t('例如 prefer-by-conversation-id…')}
             rules={[{ required: true }]}
             onChange={(value) =>
               setEditingRule((prev) => ({ ...(prev || {}), name: value }))
@@ -1180,7 +1180,7 @@ export default function SettingsChannelAffinity(props) {
                   <Form.Input
                     field='value_regex'
                     label={t('Value 正则')}
-                    placeholder='^[-0-9A-Za-z._:]{1,128}$'
+                    placeholder={'^[-0-9A-Za-z._:]{1,128}$'}
                     extraText={t(
                       '可选。对提取到的亲和 Key 做正则校验；不填表示不校验。',
                     )}
@@ -1190,7 +1190,7 @@ export default function SettingsChannelAffinity(props) {
                   <Form.InputNumber
                     field='ttl_seconds'
                     label={t('TTL（秒，0 表示默认）')}
-                    placeholder='例如 600…'
+                    placeholder={t('例如 600…')}
                     min={0}
                     extraText={
                       <Text type='tertiary' size='small'>

@@ -13,7 +13,7 @@ var relayGoPool gopool.Pool
 func init() {
 	relayGoPool = gopool.NewPool("gopool.RelayPool", math.MaxInt32, gopool.NewConfig())
 	relayGoPool.SetPanicHandler(func(ctx context.Context, i interface{}) {
-		if stopChan, ok := ctx.Value("stop_chan").(chan bool); ok {
+		if stopChan, ok := ctx.Value(RelayStopChanKey).(chan bool); ok {
 			SafeSendBool(stopChan, true)
 		}
 		SysError(fmt.Sprintf("panic in gopool.RelayPool: %v", i))

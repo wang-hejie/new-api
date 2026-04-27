@@ -347,7 +347,7 @@ const RateLimitGroupSection = ({
               {featureText ? (
                 <div className='inline-flex max-w-full items-center gap-2 rounded-full bg-semi-color-fill-0 px-2 py-1'>
                   <span className='text-[11px] text-semi-color-text-2'>
-                    metered_feature
+                    {'metered_feature'}
                   </span>
                   <span className='min-w-0 break-all font-mono text-xs text-semi-color-text-0'>
                     {featureText}

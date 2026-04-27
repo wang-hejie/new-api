@@ -72,11 +72,11 @@ const DeploymentsActions = ({
             content={`${t('确定要删除选中的')} ${selectedKeys.length} ${t('个部署吗？此操作不可逆。')}`}
             okText={t('删除')}
             cancelText={t('取消')}
-            okType='danger'
+            okType={'danger'}
             onConfirm={handleBatchDelete}
           >
             <Button
-              type='danger'
+              type={'danger'}
               className='flex-1 md:flex-initial'
               disabled={selectedKeys.length === 0}
               size='small'

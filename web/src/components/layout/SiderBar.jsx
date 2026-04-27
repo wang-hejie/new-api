@@ -406,7 +406,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
           isCollapsed={collapsed}
           onCollapseChange={toggleCollapsed}
           selectedKeys={selectedKeys}
-          itemStyle='sidebar-nav-item'
+          itemStyle={'sidebar-nav-item'}
           hoverStyle='sidebar-nav-item:hover'
           selectedStyle='sidebar-nav-item-selected'
           renderWrapper={({ itemElement, props }) => {

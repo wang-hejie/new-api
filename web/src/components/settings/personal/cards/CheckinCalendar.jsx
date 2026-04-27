@@ -215,7 +215,7 @@ const CheckinCalendar = ({ t, status, turnstileEnabled, turnstileSiteKey }) => {
   return (
     <Card className='!rounded-2xl'>
       <Modal
-        title='Security Check'
+        title={t('Security Check')}
         visible={turnstileModalVisible}
         footer={null}
         centered

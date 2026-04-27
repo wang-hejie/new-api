@@ -445,7 +445,7 @@ func simulatePollBilling(ctx context.Context, task *model.Task, newStatus model.
 	quota := task.Quota
 
 	task.Status = newStatus
-	switch string(newStatus) {
+	switch newStatus {
 	case model.TaskStatusSuccess:
 		task.Progress = "100%"
 		task.FinishTime = 9999
@@ -646,7 +646,7 @@ func TestSettle_PerCallBilling_SkipsAdaptorAdjust(t *testing.T) {
 	task.PrivateData.BillingContext.PerCallBilling = true
 
 	adaptor := &mockAdaptor{adjustReturn: 2000}
-	taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess}
+	taskResult := &relaycommon.TaskInfo{Status: string(model.TaskStatusSuccess)}
 
 	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
 
@@ -673,7 +673,7 @@ func TestSettle_PerCallBilling_SkipsTotalTokens(t *testing.T) {
 	task.PrivateData.BillingContext.PerCallBilling = true
 
 	adaptor := &mockAdaptor{adjustReturn: 0}
-	taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess, TotalTokens: 9999}
+	taskResult := &relaycommon.TaskInfo{Status: string(model.TaskStatusSuccess), TotalTokens: 9999}
 
 	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
 
@@ -701,7 +701,7 @@ func TestSettle_NonPerCall_AdaptorAdjustWorks(t *testing.T) {
 	// PerCallBilling defaults to false
 
 	adaptor := &mockAdaptor{adjustReturn: adaptorQuota}
-	taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess}
+	taskResult := &relaycommon.TaskInfo{Status: string(model.TaskStatusSuccess)}
 
 	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
 

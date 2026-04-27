@@ -105,7 +105,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	// https://ai.google.dev/gemini-api/docs/imagen
 	// https://platform.openai.com/docs/api-reference/images/create
 	if request.Quality != "" {
-		imageSize := "1K" // default
+		var imageSize string
 		switch request.Quality {
 		case "hd", "high":
 			imageSize = "2K"

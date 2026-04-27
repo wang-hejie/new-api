@@ -46,6 +46,15 @@ const ParameterControl = ({
   disabled = false,
 }) => {
   const { t } = useTranslation();
+  const labels = {
+    temperature: 'Temperature',
+    topP: 'Top P',
+    frequencyPenalty: 'Frequency Penalty',
+    presencePenalty: 'Presence Penalty',
+    maxTokens: 'Max Tokens',
+    maxTokensPlaceholder: 'MaxTokens',
+    seed: 'Seed',
+  };
 
   return (
     <>
@@ -57,7 +66,7 @@ const ParameterControl = ({
           <div className='flex items-center gap-2'>
             <Thermometer size={16} className='text-gray-500' />
             <Typography.Text strong className='text-sm'>
-              Temperature
+              {labels.temperature}
             </Typography.Text>
             <Tag size='small' shape='circle'>
               {inputs.temperature}
@@ -101,7 +110,7 @@ const ParameterControl = ({
           <div className='flex items-center gap-2'>
             <Target size={16} className='text-gray-500' />
             <Typography.Text strong className='text-sm'>
-              Top P
+              {labels.topP}
             </Typography.Text>
             <Tag size='small' shape='circle'>
               {inputs.top_p}
@@ -141,7 +150,7 @@ const ParameterControl = ({
           <div className='flex items-center gap-2'>
             <Repeat size={16} className='text-gray-500' />
             <Typography.Text strong className='text-sm'>
-              Frequency Penalty
+              {labels.frequencyPenalty}
             </Typography.Text>
             <Tag size='small' shape='circle'>
               {inputs.frequency_penalty}
@@ -185,7 +194,7 @@ const ParameterControl = ({
           <div className='flex items-center gap-2'>
             <Ban size={16} className='text-gray-500' />
             <Typography.Text strong className='text-sm'>
-              Presence Penalty
+              {labels.presencePenalty}
             </Typography.Text>
             <Tag size='small' shape='circle'>
               {inputs.presence_penalty}
@@ -229,7 +238,7 @@ const ParameterControl = ({
           <div className='flex items-center gap-2'>
             <Hash size={16} className='text-gray-500' />
             <Typography.Text strong className='text-sm'>
-              Max Tokens
+              {labels.maxTokens}
             </Typography.Text>
           </div>
           <Button
@@ -249,7 +258,7 @@ const ParameterControl = ({
           />
         </div>
         <InputNumber
-          placeholder='MaxTokens'
+          placeholder={labels.maxTokensPlaceholder}
           name='max_tokens'
           value={inputs.max_tokens}
           onNumberChange={(value) => onInputChange('max_tokens', value)}
@@ -268,7 +277,7 @@ const ParameterControl = ({
           <div className='flex items-center gap-2'>
             <Shuffle size={16} className='text-gray-500' />
             <Typography.Text strong className='text-sm'>
-              Seed
+              {labels.seed}
             </Typography.Text>
             <Typography.Text className='text-xs text-gray-400'>
               ({t('可选，用于复现结果')})

@@ -429,7 +429,7 @@ const NotificationSettings = ({
                   rules={[{ required: true, message: t('请选择通知方式') }]}
                 >
                   <Radio value='email'>{t('邮件通知')}</Radio>
-                  <Radio value='webhook'>{t('Webhook通知')}</Radio>
+                  <Radio value={'webhook'}>{t('Webhook通知')}</Radio>
                   <Radio value='bark'>{t('Bark通知')}</Radio>
                   <Radio value='gotify'>{t('Gotify通知')}</Radio>
                 </Form.RadioGroup>
@@ -478,7 +478,10 @@ const NotificationSettings = ({
                     checkedText={t('开')}
                     uncheckedText={t('关')}
                     onChange={(value) =>
-                      handleFormChange('upstreamModelUpdateNotifyEnabled', value)
+                      handleFormChange(
+                        'upstreamModelUpdateNotifyEnabled',
+                        value,
+                      )
                     }
                     extraText={t(
                       '仅管理员可用。开启后，当系统定时检测全部渠道发现上游模型变更或检测异常时，将按你选择的通知方式发送汇总通知；渠道或模型过多时会自动省略部分明细。',
@@ -555,28 +558,28 @@ const NotificationSettings = ({
                               values: ['$0.99'],
                               timestamp: 1739950503,
                             }}
-                            title='webhook'
-                            language='json'
+                            title={'webhook'}
+                            language={'json'}
                           />
                         </div>
                         <div className='text-xs text-gray-500 leading-relaxed'>
                           <div>
-                            <strong>type:</strong>{' '}
+                            <strong>{'type:'}</strong>{' '}
                             {t('通知类型 (quota_exceed: 额度预警)')}{' '}
                           </div>
                           <div>
-                            <strong>title:</strong> {t('通知标题')}
+                            <strong>{'title:'}</strong> {t('通知标题')}
                           </div>
                           <div>
-                            <strong>content:</strong>{' '}
+                            <strong>{'content:'}</strong>{' '}
                             {t('通知内容，支持 {{value}} 变量占位符')}
                           </div>
                           <div>
-                            <strong>values:</strong>{' '}
+                            <strong>{'values:'}</strong>{' '}
                             {t('按顺序替换content中的变量占位符')}
                           </div>
                           <div>
-                            <strong>timestamp:</strong> {t('Unix时间戳')}
+                            <strong>{'timestamp:'}</strong> {t('Unix时间戳')}
                           </div>
                         </div>
                       </div>
@@ -617,7 +620,8 @@ const NotificationSettings = ({
                       </div>
                       <div className='text-xs text-gray-600 font-mono bg-white p-3 rounded-lg shadow-sm mb-4'>
                         https://api.day.app/yourkey/{'{{title}}'}/
-                        {'{{content}}'}?sound=alarm&group=quota
+                        {'{{content}}'}
+                        {'?sound=alarm&group=quota'}
                       </div>
                       <div className='text-xs text-gray-500 space-y-2'>
                         <div>
@@ -636,7 +640,7 @@ const NotificationSettings = ({
                             rel='noopener noreferrer'
                             className='text-blue-500 hover:text-blue-600 font-medium'
                           >
-                            Bark {t('官方文档')}
+                            {'Bark'} {t('官方文档')}
                           </a>
                         </div>
                       </div>
@@ -737,7 +741,7 @@ const NotificationSettings = ({
                             rel='noopener noreferrer'
                             className='text-blue-500 hover:text-blue-600 font-medium'
                           >
-                            Gotify {t('官方文档')}
+                            {'Gotify'} {t('官方文档')}
                           </a>
                         </div>
                       </div>

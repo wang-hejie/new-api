@@ -211,12 +211,12 @@ const renderPaymentConfig = (text, record, t, enableEpay) => {
     <Space spacing={4}>
       {hasStripe && (
         <Tag color='violet' shape='circle'>
-          Stripe
+          {'Stripe'}
         </Tag>
       )}
       {hasCreem && (
         <Tag color='cyan' shape='circle'>
-          Creem
+          {'Creem'}
         </Tag>
       )}
       {hasEpay && (
