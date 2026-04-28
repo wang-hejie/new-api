@@ -35,3 +35,6 @@ data/
 .test
 token_estimator_test.go
 skills-lock.json
+
+# 本地真实环境配置, 包含敏感密码, 禁止入库; 模板见 docker-compose.example.yml
+docker-compose.yml
