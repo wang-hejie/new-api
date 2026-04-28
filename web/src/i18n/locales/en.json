@@ -1159,6 +1159,7 @@
     "固定阶梯": "Fixed Tier",
     "图像尺寸": "Image size",
     "图像数量": "Image count",
+    "Gemini 图像模型一次只生成 1 张图": "Gemini image models generate 1 image at a time",
     "图像生成": "Image Generation",
     "图像生成接口没有返回图像": "The image generation API returned no image",
     "图像质量": "Image quality",

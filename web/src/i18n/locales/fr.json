@@ -1143,6 +1143,7 @@
     "固定价格值": "Valeur de prix fixe",
     "图像尺寸": "Taille de l’image",
     "图像数量": "Nombre d’images",
+    "Gemini 图像模型一次只生成 1 张图": "Les modèles d’image Gemini génèrent 1 image à la fois",
     "图像生成": "Génération d'images",
     "图像生成接口没有返回图像": "L’API de génération d’images n’a renvoyé aucune image",
     "图像质量": "Qualité de l’image",

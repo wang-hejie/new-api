@@ -1131,6 +1131,7 @@
     "固定价格值": "Giá trị giá cố định",
     "图像尺寸": "Kích thước ảnh",
     "图像数量": "Số lượng ảnh",
+    "Gemini 图像模型一次只生成 1 张图": "Mô hình ảnh Gemini chỉ tạo 1 ảnh mỗi lần",
     "图像生成": "Tạo hình ảnh",
     "图像生成接口没有返回图像": "API tạo ảnh không trả về ảnh",
     "图像质量": "Chất lượng ảnh",

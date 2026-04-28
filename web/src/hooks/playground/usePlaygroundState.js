@@ -38,6 +38,9 @@ import {
   getEndpointTypeFromCustomBody,
 } from '../../helpers';
 
+const findModelOption = (models, modelName) =>
+  (models || []).find((model) => model.value === modelName);
+
 export const usePlaygroundState = () => {
   const { t } = useTranslation();
 
@@ -116,6 +119,19 @@ export const usePlaygroundState = () => {
     inputs.model,
     selectedEndpointType,
   ]);
+
+  const selectedModelOption = useMemo(
+    () => findModelOption(models, inputs.model),
+    [models, inputs.model],
+  );
+  const imageParameters = selectedModelOption?.imageParameters;
+  const inputsWithImageParameters = useMemo(
+    () => ({
+      ...inputs,
+      imageParameters,
+    }),
+    [inputs, imageParameters],
+  );
 
   // 当语言改变时，如果是默认消息则更新
   useEffect(() => {
@@ -285,7 +301,7 @@ export const usePlaygroundState = () => {
 
   return {
     // 配置状态
-    inputs,
+    inputs: inputsWithImageParameters,
     parameterEnabled,
     showDebugPanel,
     customRequestMode,

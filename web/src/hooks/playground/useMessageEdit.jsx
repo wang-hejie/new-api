@@ -25,7 +25,10 @@ import {
   buildPayloadByEndpoint,
   createLoadingAssistantMessage,
 } from '../../helpers';
-import { MESSAGE_ROLES } from '../../constants/playground.constants';
+import {
+  ENDPOINT_TYPES,
+  MESSAGE_ROLES,
+} from '../../constants/playground.constants';
 
 export const useMessageEdit = (
   setMessage,
@@ -109,7 +112,13 @@ export const useMessageEdit = (
                   ...prevMsg,
                   createLoadingAssistantMessage(),
                 ]);
-                sendRequest(payload, inputs.stream, endpointType);
+                sendRequest(
+                  payload,
+                  endpointType === ENDPOINT_TYPES.IMAGE_GENERATION
+                    ? false
+                    : inputs.stream,
+                  endpointType,
+                );
               }, 100);
             },
             onCancel: () => {

@@ -17,6 +17,11 @@ var (
 		"flux-",
 		"flux.1-",
 	}
+	geminiNativeImageModels = map[string]struct{}{
+		"gemini-2.5-flash-image":         {},
+		"gemini-3-pro-image-preview":     {},
+		"gemini-3.1-flash-image-preview": {},
+	}
 	OpenAITextModels = []string{
 		"gpt-",
 		"o1",
@@ -35,8 +40,17 @@ func IsOpenAIResponseOnlyModel(modelName string) bool {
 	return false
 }
 
+func IsGeminiNativeImageModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
+	_, ok := geminiNativeImageModels[modelName]
+	return ok
+}
+
 func IsImageGenerationModel(modelName string) bool {
 	modelName = strings.ToLower(modelName)
+	if IsGeminiNativeImageModel(modelName) {
+		return true
+	}
 	for _, m := range ImageGenerationModels {
 		if strings.HasPrefix(m, "prefix:") && strings.HasPrefix(modelName, strings.TrimPrefix(m, "prefix:")) {
 			return true

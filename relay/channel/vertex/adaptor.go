@@ -389,6 +389,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			if info.RelayMode == constant.RelayModeGemini {
 				return gemini.GeminiTextGenerationHandler(c, info, resp)
 			} else {
+				if info.RelayMode == constant.RelayModeImagesGenerations && common.IsGeminiNativeImageModel(info.UpstreamModelName) {
+					return gemini.GeminiNativeImageChatHandler(c, info, resp)
+				}
 				if strings.HasPrefix(info.UpstreamModelName, "imagen") {
 					return gemini.GeminiImageHandler(c, info, resp)
 				}

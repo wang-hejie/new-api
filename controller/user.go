@@ -543,8 +543,29 @@ func GetUserModels(c *gin.Context) {
 }
 
 type PlaygroundModelInfo struct {
-	Name          string                  `json:"name"`
-	EndpointTypes []constant.EndpointType `json:"endpoint_types"`
+	Name                string                    `json:"name"`
+	EndpointTypes       []constant.EndpointType   `json:"endpoint_types"`
+	ImageGenerationMode string                    `json:"image_generation_mode,omitempty"`
+	ImageParameters     *PlaygroundImageParameter `json:"image_parameters,omitempty"`
+}
+
+type PlaygroundImageParameter struct {
+	Size           bool `json:"size"`
+	Quality        bool `json:"quality"`
+	ResponseFormat bool `json:"response_format"`
+	NMax           int  `json:"n_max,omitempty"`
+}
+
+func getPlaygroundImageGenerationMetadata(modelName string) (string, *PlaygroundImageParameter) {
+	if common.IsGeminiNativeImageModel(modelName) {
+		return "gemini_native", &PlaygroundImageParameter{
+			Size:           false,
+			Quality:        false,
+			ResponseFormat: false,
+			NMax:           1,
+		}
+	}
+	return "", nil
 }
 
 func GetUserPlaygroundModels(c *gin.Context) {
@@ -573,9 +594,12 @@ func GetUserPlaygroundModels(c *gin.Context) {
 
 	models := make([]PlaygroundModelInfo, 0, len(modelNames))
 	for _, modelName := range modelNames {
+		imageGenerationMode, imageParameters := getPlaygroundImageGenerationMetadata(modelName)
 		models = append(models, PlaygroundModelInfo{
-			Name:          modelName,
-			EndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+			Name:                modelName,
+			EndpointTypes:       model.GetModelSupportEndpointTypes(modelName),
+			ImageGenerationMode: imageGenerationMode,
+			ImageParameters:     imageParameters,
 		})
 	}
 

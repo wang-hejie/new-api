@@ -196,6 +196,17 @@ func ThinkingAdaptor(geminiRequest *dto.GeminiChatRequest, info *relaycommon.Rel
 	}
 }
 
+func buildGeminiSafetySettings() []dto.GeminiChatSafetySettings {
+	safetySettings := make([]dto.GeminiChatSafetySettings, 0, len(SafetySettingList))
+	for _, category := range SafetySettingList {
+		safetySettings = append(safetySettings, dto.GeminiChatSafetySettings{
+			Category:  category,
+			Threshold: model_setting.GetGeminiSafetySetting(category),
+		})
+	}
+	return safetySettings
+}
+
 // Setting safety to the lowest possible values since Gemini is already powerless enough
 func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, info *relaycommon.RelayInfo) (*dto.GeminiChatRequest, error) {
 
@@ -355,14 +366,7 @@ func CovertOpenAI2Gemini(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 		ThinkingAdaptor(&geminiRequest, info, textRequest)
 	}
 
-	safetySettings := make([]dto.GeminiChatSafetySettings, 0, len(SafetySettingList))
-	for _, category := range SafetySettingList {
-		safetySettings = append(safetySettings, dto.GeminiChatSafetySettings{
-			Category:  category,
-			Threshold: model_setting.GetGeminiSafetySetting(category),
-		})
-	}
-	geminiRequest.SafetySettings = safetySettings
+	geminiRequest.SafetySettings = buildGeminiSafetySettings()
 
 	// openaiContent.FuncToToolCalls()
 	if textRequest.Tools != nil {
@@ -1589,6 +1593,81 @@ func GeminiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	}
 
 	return usage, nil
+}
+
+func GeminiNativeImageChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+	responseBody, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return nil, types.NewOpenAIError(readErr, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	_ = resp.Body.Close()
+
+	var geminiResponse dto.GeminiChatResponse
+	if jsonErr := common.Unmarshal(responseBody, &geminiResponse); jsonErr != nil {
+		return nil, types.NewOpenAIError(jsonErr, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+
+	openAIResponse := dto.ImageResponse{
+		Created: common.GetTimestamp(),
+		Data:    make([]dto.ImageData, 0),
+	}
+	revisedTexts := make([]string, 0)
+	for _, candidate := range geminiResponse.Candidates {
+		for _, part := range candidate.Content.Parts {
+			switch {
+			case part.InlineData != nil && strings.HasPrefix(part.InlineData.MimeType, "image"):
+				openAIResponse.Data = append(openAIResponse.Data, dto.ImageData{
+					B64Json: part.InlineData.Data,
+				})
+			case strings.TrimSpace(part.Text) != "":
+				revisedTexts = append(revisedTexts, part.Text)
+			}
+		}
+	}
+
+	if len(openAIResponse.Data) == 0 {
+		return nil, types.NewOpenAIError(errors.New("no images generated"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	if len(revisedTexts) > 0 {
+		openAIResponse.Data[0].RevisedPrompt = strings.Join(revisedTexts, "\n")
+	}
+
+	generatedImages := len(openAIResponse.Data)
+	if info.PriceData.UsePrice {
+		info.PriceData.AddOtherRatio("n", float64(generatedImages))
+	}
+
+	jsonResponse, jsonErr := common.Marshal(openAIResponse)
+	if jsonErr != nil {
+		return nil, types.NewError(jsonErr, types.ErrorCodeBadResponseBody)
+	}
+
+	c.Writer.Header().Set("Content-Type", "application/json")
+	c.Writer.WriteHeader(resp.StatusCode)
+	_, _ = c.Writer.Write(jsonResponse)
+
+	usage := buildGeminiNativeImageUsage(geminiResponse.UsageMetadata, info.GetEstimatePromptTokens(), generatedImages)
+	return &usage, nil
+}
+
+func buildGeminiNativeImageUsage(metadata dto.GeminiUsageMetadata, fallbackPromptTokens int, generatedImages int) dto.Usage {
+	const fallbackTokensPerImage = 1290
+	fallbackImageTokens := fallbackTokensPerImage * generatedImages
+	if metadata.TotalTokenCount > 0 {
+		usage := buildUsageFromGeminiMetadata(metadata, fallbackPromptTokens)
+		if usage.CompletionTokenDetails.ImageTokens == 0 && fallbackImageTokens > 0 {
+			usage.CompletionTokenDetails.ImageTokens = fallbackImageTokens
+		}
+		return usage
+	}
+
+	usage := dto.Usage{
+		PromptTokens:     fallbackPromptTokens,
+		CompletionTokens: fallbackImageTokens,
+		TotalTokens:      fallbackPromptTokens + fallbackImageTokens,
+	}
+	usage.CompletionTokenDetails.ImageTokens = fallbackImageTokens
+	return usage
 }
 
 type GeminiModelsResponse struct {

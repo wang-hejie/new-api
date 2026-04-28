@@ -280,7 +280,7 @@ const Playground = () => {
           // 发送自定义请求体
           sendRequest(
             customPayload,
-            customPayload.stream !== false,
+            isImageGeneration ? false : customPayload.stream !== false,
             endpointType,
           );
 
@@ -321,7 +321,11 @@ const Playground = () => {
         inputs,
         parameterEnabled,
       );
-      sendRequest(payload, inputs.stream, endpointType);
+      sendRequest(
+        payload,
+        isImageGeneration ? false : inputs.stream,
+        endpointType,
+      );
 
       // 禁用图片模式
       if (inputs.imageEnabled || isImageGeneration) {

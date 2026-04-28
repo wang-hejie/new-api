@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
@@ -21,6 +22,12 @@ import (
 )
 
 type Adaptor struct {
+}
+
+func isGeminiNativeImageGeneration(info *relaycommon.RelayInfo) bool {
+	return info != nil &&
+		info.RelayMode == constant.RelayModeImagesGenerations &&
+		common.IsGeminiNativeImageModel(info.UpstreamModelName)
 }
 
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
@@ -58,10 +65,20 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	if !strings.HasPrefix(info.UpstreamModelName, "imagen") {
-		return nil, errors.New("not supported model for image generation, only imagen models are supported")
+	if info == nil {
+		return nil, errors.New("relay info is nil")
 	}
 
+	if strings.HasPrefix(strings.ToLower(info.UpstreamModelName), "imagen") {
+		return a.convertImagenRequest(request), nil
+	}
+	if isGeminiNativeImageGeneration(info) {
+		return a.convertNativeImageChatRequest(request)
+	}
+	return nil, errors.New("not supported model for image generation, only imagen-* and gemini-*-image-* models are supported")
+}
+
+func (a *Adaptor) convertImagenRequest(request dto.ImageRequest) *dto.GeminiImageRequest {
 	// convert size to aspect ratio but allow user to specify aspect ratio
 	aspectRatio := "1:1" // default aspect ratio
 	size := strings.TrimSpace(request.Size)
@@ -120,7 +137,28 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		geminiRequest.Parameters.ImageSize = imageSize
 	}
 
-	return geminiRequest, nil
+	return &geminiRequest
+}
+
+func (a *Adaptor) convertNativeImageChatRequest(request dto.ImageRequest) (*dto.GeminiChatRequest, error) {
+	if strings.TrimSpace(request.Prompt) == "" {
+		return nil, errors.New("prompt is required for image generation")
+	}
+
+	return &dto.GeminiChatRequest{
+		Contents: []dto.GeminiChatContent{
+			{
+				Role: "user",
+				Parts: []dto.GeminiPart{
+					{Text: request.Prompt},
+				},
+			},
+		},
+		GenerationConfig: dto.GeminiChatGenerationConfig{
+			ResponseModalities: []string{"TEXT", "IMAGE"},
+		},
+		SafetySettings: buildGeminiSafetySettings(),
+	}, nil
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
@@ -145,6 +183,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	}
 
 	version := model_setting.GetGeminiVersionSetting(info.UpstreamModelName)
+
+	if isGeminiNativeImageGeneration(info) {
+		return fmt.Sprintf("%s/%s/models/%s:generateContent", info.ChannelBaseUrl, version, info.UpstreamModelName), nil
+	}
 
 	if strings.HasPrefix(info.UpstreamModelName, "imagen") {
 		return fmt.Sprintf("%s/%s/models/%s:predict", info.ChannelBaseUrl, version, info.UpstreamModelName), nil
@@ -257,6 +299,10 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		} else {
 			return GeminiTextGenerationHandler(c, info, resp)
 		}
+	}
+
+	if isGeminiNativeImageGeneration(info) {
+		return GeminiNativeImageChatHandler(c, info, resp)
 	}
 
 	if strings.HasPrefix(info.UpstreamModelName, "imagen") {

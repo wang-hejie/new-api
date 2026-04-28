@@ -63,7 +63,10 @@ const GENERIC_IMAGE_QUALITIES = [
   'high',
 ];
 
-export const getImageSizeOptionsForModel = (model = '') => {
+export const getImageSizeOptionsForModel = (model = '', imageParameters) => {
+  if (imageParameters?.size === false) {
+    return [];
+  }
   if (isGptImageModel(model)) {
     return GPT_IMAGE_SIZES;
   }
@@ -76,7 +79,10 @@ export const getImageSizeOptionsForModel = (model = '') => {
   return GENERIC_IMAGE_SIZES;
 };
 
-export const getImageQualityOptionsForModel = (model = '') => {
+export const getImageQualityOptionsForModel = (model = '', imageParameters) => {
+  if (imageParameters?.quality === false) {
+    return [];
+  }
   if (isGptImageModel(model)) {
     return GPT_IMAGE_QUALITIES;
   }
@@ -99,9 +105,12 @@ const getDefaultImageSizeForModel = (model = '') => {
   return '1024x1024';
 };
 
-const sanitizeImageSize = (model = '', size = '') => {
+const sanitizeImageSize = (model = '', size = '', imageParameters) => {
+  if (imageParameters?.size === false) {
+    return '';
+  }
   const normalizedSize = typeof size === 'string' ? size.trim() : '';
-  const options = getImageSizeOptionsForModel(model);
+  const options = getImageSizeOptionsForModel(model, imageParameters);
 
   if (options.includes(normalizedSize)) {
     return normalizedSize;
@@ -114,9 +123,12 @@ const sanitizeImageSize = (model = '', size = '') => {
   return normalizedSize || getDefaultImageSizeForModel(model);
 };
 
-const sanitizeImageQuality = (model = '', quality = '') => {
+const sanitizeImageQuality = (model = '', quality = '', imageParameters) => {
+  if (imageParameters?.quality === false) {
+    return '';
+  }
   const normalizedQuality = typeof quality === 'string' ? quality.trim() : '';
-  const options = getImageQualityOptionsForModel(model);
+  const options = getImageQualityOptionsForModel(model, imageParameters);
 
   if (isDallE2Model(model)) {
     return '';
@@ -136,15 +148,24 @@ const sanitizeImageQuality = (model = '', quality = '') => {
   return normalizedQuality || 'auto';
 };
 
-const sanitizeImageCount = (count) => {
+const sanitizeImageCount = (count, maxCount) => {
   const parsedCount = parseInt(count, 10);
+  const safeMaxCount =
+    Number.isFinite(maxCount) && maxCount > 0 ? Math.floor(maxCount) : null;
   if (Number.isFinite(parsedCount) && parsedCount > 0) {
-    return parsedCount;
+    return safeMaxCount ? Math.min(parsedCount, safeMaxCount) : parsedCount;
   }
   return 1;
 };
 
-const sanitizeImageResponseFormat = (model = '', responseFormat = '') => {
+const sanitizeImageResponseFormat = (
+  model = '',
+  responseFormat = '',
+  imageParameters,
+) => {
+  if (imageParameters?.response_format === false) {
+    return '';
+  }
   const normalizedResponseFormat =
     typeof responseFormat === 'string' ? responseFormat.trim() : '';
 
@@ -256,20 +277,33 @@ export const buildApiPayload = buildChatPayload;
 export const buildImagePayload = (messages, inputs) => {
   const lastUserMessage = getLastUserMessage(messages);
   const prompt = getTextContent(lastUserMessage).trim();
-  const quality = sanitizeImageQuality(inputs.model, inputs.prompt_quality);
+  const imageParameters = inputs.imageParameters;
+  const size = sanitizeImageSize(
+    inputs.model,
+    inputs.prompt_size,
+    imageParameters,
+  );
+  const quality = sanitizeImageQuality(
+    inputs.model,
+    inputs.prompt_quality,
+    imageParameters,
+  );
   const responseFormat = sanitizeImageResponseFormat(
     inputs.model,
     inputs.prompt_response_format,
+    imageParameters,
   );
 
   const payload = {
     model: inputs.model,
     group: inputs.group,
     prompt,
-    n: sanitizeImageCount(inputs.prompt_n),
-    size: sanitizeImageSize(inputs.model, inputs.prompt_size),
+    n: sanitizeImageCount(inputs.prompt_n, imageParameters?.n_max),
   };
 
+  if (size) {
+    payload.size = size;
+  }
   if (quality) {
     payload.quality = quality;
   }
@@ -339,11 +373,17 @@ export const processModelsData = (data, currentModel) => {
         Array.isArray(model?.endpoint_types) && model.endpoint_types.length > 0
           ? model.endpoint_types
           : [ENDPOINT_TYPES.OPENAI];
+      const imageParameters =
+        model?.image_parameters && typeof model.image_parameters === 'object'
+          ? model.image_parameters
+          : undefined;
 
       return {
         label: name,
         value: name,
         endpointTypes,
+        imageGenerationMode: model?.image_generation_mode,
+        imageParameters,
       };
     })
     .filter((model) => model.value);

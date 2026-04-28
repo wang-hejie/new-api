@@ -30,6 +30,8 @@ import {
   getApiEndpointByEndpointType,
   getEndpointTypeForModel,
   getEndpointTypeFromCustomBody,
+  getImageQualityOptionsForModel,
+  getImageSizeOptionsForModel,
   processModelsData,
 } from './playgroundPayload';
 
@@ -169,6 +171,91 @@ describe('playground payload helpers', () => {
     expect(payload.temperature).toBeUndefined();
   });
 
+  test('buildImagePayload follows image_parameters for Gemini native image models', () => {
+    const payload = buildImagePayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'draw a robot',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gemini-3.1-flash-image-preview',
+        prompt_n: 4,
+        imageParameters: {
+          size: false,
+          quality: false,
+          response_format: false,
+          n_max: 1,
+        },
+      },
+    );
+
+    expect(payload).toEqual({
+      model: 'gemini-3.1-flash-image-preview',
+      group: 'default',
+      prompt: 'draw a robot',
+      n: 1,
+    });
+  });
+
+  test('buildImagePayload applies partial image_parameters capabilities', () => {
+    const payload = buildImagePayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'draw a poster',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'custom-image-model',
+        prompt_size: '1792x1024',
+        prompt_quality: 'hd',
+        prompt_response_format: 'url',
+        prompt_n: 5,
+        imageParameters: {
+          size: false,
+          quality: true,
+          response_format: true,
+          n_max: 3,
+        },
+      },
+    );
+
+    expect(payload).toEqual({
+      model: 'custom-image-model',
+      group: 'default',
+      prompt: 'draw a poster',
+      n: 3,
+      quality: 'hd',
+      response_format: 'url',
+    });
+  });
+
+  test('image option helpers hide unsupported image_parameters', () => {
+    const imageParameters = {
+      size: false,
+      quality: false,
+      response_format: false,
+      n_max: 1,
+    };
+
+    expect(
+      getImageSizeOptionsForModel(
+        'gemini-3.1-flash-image-preview',
+        imageParameters,
+      ),
+    ).toEqual([]);
+    expect(
+      getImageQualityOptionsForModel(
+        'gemini-3.1-flash-image-preview',
+        imageParameters,
+      ),
+    ).toEqual([]);
+  });
+
   test('buildPayloadByEndpoint preserves chat payload behavior for openai models', () => {
     const messages = [
       {
@@ -281,6 +368,13 @@ describe('playground payload helpers', () => {
         {
           name: 'gpt-image-1',
           endpoint_types: [ENDPOINT_TYPES.IMAGE_GENERATION],
+          image_generation_mode: 'gemini_native',
+          image_parameters: {
+            size: false,
+            quality: false,
+            response_format: false,
+            n_max: 1,
+          },
         },
       ],
       'gpt-image-1',
@@ -297,8 +391,61 @@ describe('playground payload helpers', () => {
         label: 'gpt-image-1',
         value: 'gpt-image-1',
         endpointTypes: [ENDPOINT_TYPES.IMAGE_GENERATION],
+        imageGenerationMode: 'gemini_native',
+        imageParameters: {
+          size: false,
+          quality: false,
+          response_format: false,
+          n_max: 1,
+        },
       },
     ]);
+  });
+
+  test('processModelsData preserves Gemini native metadata without frontend model whitelist', () => {
+    const { modelOptions, selectedModel } = processModelsData(
+      [
+        {
+          name: 'gemini-3.1-flash-image-preview',
+          endpoint_types: [
+            ENDPOINT_TYPES.OPENAI,
+            'gemini',
+            ENDPOINT_TYPES.IMAGE_GENERATION,
+          ],
+          image_generation_mode: 'gemini_native',
+          image_parameters: {
+            size: false,
+            quality: false,
+            response_format: false,
+            n_max: 1,
+          },
+        },
+      ],
+      'missing-model',
+    );
+
+    expect(selectedModel).toBe('gemini-3.1-flash-image-preview');
+    expect(modelOptions).toEqual([
+      {
+        label: 'gemini-3.1-flash-image-preview',
+        value: 'gemini-3.1-flash-image-preview',
+        endpointTypes: [
+          ENDPOINT_TYPES.OPENAI,
+          'gemini',
+          ENDPOINT_TYPES.IMAGE_GENERATION,
+        ],
+        imageGenerationMode: 'gemini_native',
+        imageParameters: {
+          size: false,
+          quality: false,
+          response_format: false,
+          n_max: 1,
+        },
+      },
+    ]);
+    expect(
+      getEndpointTypeForModel(modelOptions, 'gemini-3.1-flash-image-preview'),
+    ).toBe(ENDPOINT_TYPES.IMAGE_GENERATION);
   });
 
   test('endpoint selection uses includes instead of endpoint type ordering', () => {
@@ -370,5 +517,27 @@ describe('playground payload helpers', () => {
         'gpt-image-1',
       ),
     ).toBe(ENDPOINT_TYPES.OPENAI);
+  });
+
+  test('custom body Gemini native image model dispatches to image endpoint', () => {
+    const models = [
+      { value: 'gpt-4o', endpointTypes: [ENDPOINT_TYPES.OPENAI] },
+      {
+        value: 'gemini-3.1-flash-image-preview',
+        endpointTypes: [
+          ENDPOINT_TYPES.OPENAI,
+          'gemini',
+          ENDPOINT_TYPES.IMAGE_GENERATION,
+        ],
+      },
+    ];
+
+    expect(
+      getEndpointTypeFromCustomBody(
+        JSON.stringify({ model: 'gemini-3.1-flash-image-preview' }),
+        models,
+        'gpt-4o',
+      ),
+    ).toBe(ENDPOINT_TYPES.IMAGE_GENERATION);
   });
 });
