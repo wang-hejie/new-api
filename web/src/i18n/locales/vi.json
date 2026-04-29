@@ -4395,6 +4395,14 @@
     "默认折叠侧边栏": "Mặc định thu gọn thanh bên",
     "默认测试模型": "Mô hình kiểm tra mặc định",
     "默认用户消息": "Xin chào",
-    "默认补全倍率": "Tỷ lệ hoàn thành mặc định"
+    "默认补全倍率": "Tỷ lệ hoàn thành mặc định",
+    "文档中心": "Trung tâm tài liệu",
+    "通用": "Chung",
+    "加载文档失败": "Không thể tải tài liệu",
+    "文档不存在": "Không tìm thấy tài liệu",
+    "暂无文档": "Chưa có tài liệu",
+    "请从左侧选择一篇文档查看": "Chọn một tài liệu ở bên trái để xem",
+    "返回文档列表": "Quay lại danh sách tài liệu",
+    "留空使用内置文档；外链如 https://docs.newapi.pro": "Để trống để dùng tài liệu tích hợp; liên kết ngoài như https://docs.newapi.pro"
   }
 }

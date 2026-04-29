@@ -3867,6 +3867,14 @@
     "默认折叠侧边栏": "Réduire la barre latérale par défaut",
     "默认测试模型": "Modèle de test par défaut",
     "默认用户消息": "Bonjour",
-    "默认补全倍率": "Taux de complétion par défaut"
+    "默认补全倍率": "Taux de complétion par défaut",
+    "文档中心": "Centre de documentation",
+    "通用": "Général",
+    "加载文档失败": "Échec du chargement de la documentation",
+    "文档不存在": "Document introuvable",
+    "暂无文档": "Aucun document disponible",
+    "请从左侧选择一篇文档查看": "Sélectionnez un document à gauche pour le consulter",
+    "返回文档列表": "Retour à la liste des documents",
+    "留空使用内置文档；外链如 https://docs.newapi.pro": "Laissez vide pour utiliser la documentation intégrée ; lien externe comme https://docs.newapi.pro"
   }
 }

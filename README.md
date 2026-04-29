@@ -188,6 +188,7 @@ docker run --name new-api -d --restart always \
 | 🔄 Data Compatibility | Fully compatible with the original One API database |
 | 📈 Data Dashboard | Visual console and statistical analysis |
 | 🔒 Permission Management | Token grouping, model restrictions, user management |
+| 📚 Built-in Docs Center | Built-in guide pages, with admin docs address still compatible with external links |
 
 ### 💰 Payment and Billing
 

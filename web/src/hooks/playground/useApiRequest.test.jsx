@@ -83,6 +83,8 @@ mock.module('../../helpers', () => ({
     ];
   },
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,
@@ -119,6 +121,8 @@ mock.module('../../helpers/index.js', () => ({
     ];
   },
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,
@@ -156,6 +160,8 @@ mock.module(helpersModulePath, () => ({
     ];
   },
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,
@@ -192,6 +198,8 @@ mock.module(`file://${helpersModulePath}`, () => ({
     ];
   },
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,

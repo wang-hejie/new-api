@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -39,6 +40,9 @@ var buildFS embed.FS
 
 //go:embed web/dist/index.html
 var indexPage []byte
+
+//go:embed docs/guides/*.md
+var docsFS embed.FS
 
 func main() {
 	startTime := time.Now()
@@ -181,6 +185,16 @@ func main() {
 
 	InjectUmamiAnalytics()
 	InjectGoogleAnalytics()
+
+	docsSubFS, err := fs.Sub(docsFS, "docs/guides")
+	if err != nil {
+		common.FatalLog("failed to initialize docs filesystem: " + err.Error())
+		return
+	}
+	if err = controller.InitDocs(docsSubFS); err != nil {
+		common.FatalLog("failed to initialize docs: " + err.Error())
+		return
+	}
 
 	// 设置路由
 	router.SetRouter(server, buildFS, indexPage)

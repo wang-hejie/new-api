@@ -28,6 +28,9 @@ mock.module('react-i18next', () => ({
 }));
 
 mock.module('@douyinfe/semi-ui', () => ({
+  Button: ({ children, onClick, ...props }) =>
+    React.createElement('button', { onClick, ...props }, children),
+  Empty: ({ title }) => React.createElement('div', null, title),
   InputNumber: ({ disabled, max, value }) =>
     React.createElement('input', {
       disabled,
@@ -35,6 +38,14 @@ mock.module('@douyinfe/semi-ui', () => ({
       value,
       readOnly: true,
     }),
+  Nav: Object.assign(
+    ({ children }) => React.createElement('nav', null, children),
+    {
+      Sub: ({ children, text }) =>
+        React.createElement('section', null, text, children),
+      Item: ({ text }) => React.createElement('button', null, text),
+    },
+  ),
   Select: ({ optionList = [] }) =>
     React.createElement(
       'select',
@@ -47,9 +58,21 @@ mock.module('@douyinfe/semi-ui', () => ({
         ),
       ),
     ),
+  SideSheet: ({ children, visible, title }) =>
+    React.createElement(
+      'aside',
+      { 'data-visible': visible },
+      title,
+      children,
+    ),
+  Skeleton: Object.assign(() => React.createElement('div', null, 'skeleton'), {
+    Paragraph: ({ rows }) =>
+      React.createElement('div', { 'data-skeleton-rows': rows }),
+  }),
   Tooltip: ({ children }) => React.createElement('span', null, children),
   Typography: {
     Text: ({ children }) => React.createElement('span', null, children),
+    Title: ({ children }) => React.createElement('h2', null, children),
   },
 }));
 
@@ -87,6 +110,8 @@ const playgroundImageHelpers = {
     ];
   },
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,

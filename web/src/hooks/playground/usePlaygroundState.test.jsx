@@ -66,6 +66,8 @@ mock.module('../../components/playground/configStorage.js', () => ({
 mock.module('../../helpers', () => ({
   buildImageResponseContent,
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,
@@ -109,6 +111,8 @@ mock.module('../../helpers', () => ({
 mock.module('../../helpers/index.js', () => ({
   buildImageResponseContent,
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,
@@ -170,6 +174,8 @@ const helpersModulePath = path.resolve('src/helpers/index.js');
 mock.module(helpersModulePath, () => ({
   buildImageResponseContent,
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,
@@ -213,6 +219,8 @@ mock.module(helpersModulePath, () => ({
 mock.module(`file://${helpersModulePath}`, () => ({
   buildImageResponseContent,
   getUserIdFromLocalStorage: () => 'test-user',
+  API: { get: async () => ({ data: { success: true, data: [] } }) },
+  showError: () => {},
   handleApiError: (error, response = null) => ({
     error: error.message,
     status: response?.status,

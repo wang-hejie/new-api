@@ -5,6 +5,10 @@
 .gitignore
 Makefile
 docs
+!docs/
+docs/*
+!docs/guides/
+!docs/guides/**/*.md
 .eslintcache
 .gocache
 /web/node_modules

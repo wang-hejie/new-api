@@ -17,17 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-export * from './history';
-export * from './auth';
-export * from './utils';
-export * from './base64';
-export * from './api';
-export * from './render';
-export * from './log';
-export * from './data';
-export * from './token';
-export * from './boolean';
-export * from './dashboard';
-export * from './passkey';
-export * from './statusCodeRules';
-export * from './docs';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, mock, test } from 'bun:test';
+
+mock.module('./DocsLayout', () => ({
+  default: () => <section data-docs-layout={1} />,
+}));
+
+describe('Docs page', () => {
+  test('renders the docs layout shell', async () => {
+    const { default: Docs } = await import('./index');
+
+    expect(renderToStaticMarkup(<Docs />)).toMatchInlineSnapshot(
+      `"<section data-docs-layout=\"1\"></section>"`,
+    );
+  });
+});
