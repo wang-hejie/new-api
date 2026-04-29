@@ -25,7 +25,13 @@ import {
   ScrollList,
   ScrollItem,
 } from '@douyinfe/semi-ui';
-import { API, showError, copy, showSuccess } from '../../helpers';
+import {
+  API,
+  showError,
+  copy,
+  showSuccess,
+  resolveDocsTarget,
+} from '../../helpers';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { API_ENDPOINTS } from '../../constants/common.constant';
 import { StatusContext } from '../../context/Status';
@@ -38,7 +44,7 @@ import {
   IconFile,
   IconCopy,
 } from '@douyinfe/semi-icons';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import NoticeModal from '../../components/layout/NoticeModal';
 import {
   Moonshot,
@@ -69,6 +75,7 @@ const providerCountLabel = '30+';
 
 const Home = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [statusState] = useContext(StatusContext);
   const actualTheme = useActualTheme();
   const [homePageContentLoaded, setHomePageContentLoaded] = useState(false);
@@ -117,6 +124,15 @@ const Home = () => {
     if (ok) {
       showSuccess(t('已复制到剪切板'));
     }
+  };
+
+  const handleDocsClick = () => {
+    const target = resolveDocsTarget(docsLink);
+    if (target.kind === 'internal') {
+      navigate(target.to);
+      return;
+    }
+    window.open(target.href, '_blank');
   };
 
   useEffect(() => {
@@ -241,16 +257,14 @@ const Home = () => {
                       {statusState.status.version}
                     </Button>
                   ) : (
-                    docsLink && (
-                      <Button
-                        size={isMobile ? 'default' : 'large'}
-                        className='flex items-center !rounded-3xl px-6 py-2'
-                        icon={<IconFile />}
-                        onClick={() => window.open(docsLink, '_blank')}
-                      >
-                        {t('文档')}
-                      </Button>
-                    )
+                    <Button
+                      size={isMobile ? 'default' : 'large'}
+                      className='flex items-center !rounded-3xl px-6 py-2'
+                      icon={<IconFile />}
+                      onClick={handleDocsClick}
+                    >
+                      {t('文档')}
+                    </Button>
                   )}
                 </div>
 

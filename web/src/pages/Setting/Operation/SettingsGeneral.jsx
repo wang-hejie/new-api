@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
 import {
   Banner,
   Button,
@@ -35,8 +35,10 @@ import {
   showError,
   showSuccess,
   showWarning,
+  setStatusData,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
+import { StatusContext } from '../../../context/Status';
 
 const { Text } = Typography;
 const quotaDisplayOptions = {
@@ -48,6 +50,7 @@ const usdRatePrefix = '1 USD = ';
 
 export default function GeneralSettings(props) {
   const { t } = useTranslation();
+  const [, statusDispatch] = useContext(StatusContext);
   const [loading, setLoading] = useState(false);
   const [showQuotaWarning, setShowQuotaWarning] = useState(false);
   const [inputs, setInputs] = useState({
@@ -74,9 +77,21 @@ export default function GeneralSettings(props) {
     };
   }
 
+  const refreshStatus = async () => {
+    const res = await API.get('/api/status');
+    const { success, data } = res.data;
+    if (success) {
+      statusDispatch({ type: 'set', payload: data });
+      setStatusData(data);
+    }
+  };
+
   function onSubmit() {
     const updateArray = compareObjects(inputs, inputsRow);
     if (!updateArray.length) return showWarning(t('你似乎并没有修改什么'));
+    const docsLinkChanged = updateArray.some(
+      (item) => item.key === 'general_setting.docs_link',
+    );
     const requestQueue = updateArray.map((item) => {
       let value = '';
       if (typeof inputs[item.key] === 'boolean') {
@@ -91,7 +106,7 @@ export default function GeneralSettings(props) {
     });
     setLoading(true);
     Promise.all(requestQueue)
-      .then((res) => {
+      .then(async (res) => {
         if (requestQueue.length === 1) {
           if (res.includes(undefined)) return;
         } else if (requestQueue.length > 1) {
@@ -100,6 +115,9 @@ export default function GeneralSettings(props) {
         }
         showSuccess(t('保存成功'));
         props.refresh();
+        if (docsLinkChanged) {
+          await refreshStatus();
+        }
       })
       .catch(() => {
         showError(t('保存失败，请重试'));
@@ -262,8 +280,13 @@ export default function GeneralSettings(props) {
                 <Form.Input
                   field={'general_setting.docs_link'}
                   label={t('文档地址')}
+                  extraText={t(
+                    '留空使用内置文档；外链如 https://docs.newapi.pro',
+                  )}
                   initValue={''}
-                  placeholder={t('例如 https://docs.newapi.pro')}
+                  placeholder={t(
+                    '留空使用内置文档；外链如 https://docs.newapi.pro',
+                  )}
                   onChange={handleFieldChange('general_setting.docs_link')}
                   showClear
                 />

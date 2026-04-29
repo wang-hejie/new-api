@@ -1,12 +1,16 @@
+import Module from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
-import { createRequire } from 'node:module';
 
-const require = createRequire(import.meta.url);
-const webNodeModules = new URL('./node_modules', import.meta.url).pathname;
-process.env.NODE_PATH = process.env.NODE_PATH
-  ? `${webNodeModules}:${process.env.NODE_PATH}`
-  : webNodeModules;
-require('module').Module._initPaths();
+const webNodeModules = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  'node_modules',
+);
+process.env.NODE_PATH = [webNodeModules, process.env.NODE_PATH]
+  .filter(Boolean)
+  .join(path.delimiter);
+(Module as unknown as { _initPaths: () => void })._initPaths();
 
 const baseURL = process.env.NEW_API_BASE_URL || 'http://127.0.0.1:9991';
 

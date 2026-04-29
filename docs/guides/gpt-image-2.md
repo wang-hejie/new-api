@@ -1,3 +1,10 @@
+---
+slug: gpt-image-2
+title: gpt-image-2 使用指南
+order: 10
+category: 模型指南
+---
+
 # gpt-image-2 使用指南
 
 > 基于 `https://www.aiartmirror.com/` 的实测可用功能整理,所有字段、响应、状态码、错误格式均来自真实回归测试结果。照本指南直接对接即可。
