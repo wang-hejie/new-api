@@ -554,9 +554,11 @@ type PlaygroundImageParameter struct {
 	Quality        bool `json:"quality"`
 	ResponseFormat bool `json:"response_format"`
 	NMax           int  `json:"n_max,omitempty"`
+	SupportsEdits  bool `json:"supports_edits,omitempty"`
 }
 
 func getPlaygroundImageGenerationMetadata(modelName string) (string, *PlaygroundImageParameter) {
+	name := strings.ToLower(modelName)
 	if common.IsGeminiNativeImageModel(modelName) {
 		return "gemini_native", &PlaygroundImageParameter{
 			Size:           false,
@@ -564,6 +566,27 @@ func getPlaygroundImageGenerationMetadata(modelName string) (string, *Playground
 			ResponseFormat: false,
 			NMax:           1,
 		}
+	}
+	if name == "gpt-image-1" {
+		return "gpt_image_v1", &PlaygroundImageParameter{
+			Size:           true,
+			Quality:        true,
+			ResponseFormat: false,
+			NMax:           10,
+			SupportsEdits:  true,
+		}
+	}
+	if name == "gpt-image-2" {
+		return "gpt_image_v2", &PlaygroundImageParameter{
+			Size:           true,
+			Quality:        true,
+			ResponseFormat: true,
+			NMax:           10,
+			SupportsEdits:  true,
+		}
+	}
+	if strings.HasPrefix(name, "gpt-image-") {
+		return "", nil
 	}
 	return "", nil
 }

@@ -20,16 +20,29 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   API_ENDPOINTS,
   ENDPOINT_TYPES,
+  IMAGE_REFERENCE_USAGE,
+  IMAGE_REQUEST_MODES,
   MESSAGE_ROLES,
 } from '../constants/playground.constants';
 
 export const isImageGenerationEndpoint = (endpointType) =>
   endpointType === ENDPOINT_TYPES.IMAGE_GENERATION;
 
+export const getApiEndpointForRequest = ({
+  endpointType,
+  imageRequestMode,
+} = {}) => {
+  if (!isImageGenerationEndpoint(endpointType)) {
+    return API_ENDPOINTS.CHAT_COMPLETIONS;
+  }
+  if (imageRequestMode === IMAGE_REQUEST_MODES.EDIT) {
+    return API_ENDPOINTS.IMAGES_EDITS;
+  }
+  return API_ENDPOINTS.IMAGES_GENERATIONS;
+};
+
 export const getApiEndpointByEndpointType = (endpointType) =>
-  isImageGenerationEndpoint(endpointType)
-    ? API_ENDPOINTS.IMAGES_GENERATIONS
-    : API_ENDPOINTS.CHAT_COMPLETIONS;
+  getApiEndpointForRequest({ endpointType });
 
 export const isGptImageModel = (model = '') =>
   model.toLowerCase().startsWith('gpt-image-');
@@ -169,7 +182,7 @@ const sanitizeImageResponseFormat = (
   const normalizedResponseFormat =
     typeof responseFormat === 'string' ? responseFormat.trim() : '';
 
-  if (!normalizedResponseFormat || isGptImageModel(model)) {
+  if (!normalizedResponseFormat) {
     return '';
   }
 
@@ -178,6 +191,17 @@ const sanitizeImageResponseFormat = (
   }
 
   return '';
+};
+
+const sanitizeImageReferenceUsage = (referenceUsage = '') => {
+  const normalizedReferenceUsage =
+    typeof referenceUsage === 'string' ? referenceUsage.trim() : '';
+
+  if (Object.values(IMAGE_REFERENCE_USAGE).includes(normalizedReferenceUsage)) {
+    return normalizedReferenceUsage;
+  }
+
+  return IMAGE_REFERENCE_USAGE.SUBJECT;
 };
 
 const getTextContent = (message) => {
@@ -275,6 +299,10 @@ export const buildChatPayload = (
 export const buildApiPayload = buildChatPayload;
 
 export const buildImagePayload = (messages, inputs) => {
+  return buildImageGenerationPayload(messages, inputs);
+};
+
+export const buildImageGenerationPayload = (messages, inputs) => {
   const lastUserMessage = getLastUserMessage(messages);
   const prompt = getTextContent(lastUserMessage).trim();
   const imageParameters = inputs.imageParameters;
@@ -315,15 +343,105 @@ export const buildImagePayload = (messages, inputs) => {
   return payload;
 };
 
+const getImageReferenceFiles = (inputs) =>
+  Array.isArray(inputs.image_reference_files)
+    ? inputs.image_reference_files.filter(Boolean)
+    : [];
+
+const getFileSnapshot = (file) => ({
+  name: file?.name || '',
+  size: file?.size || 0,
+  type: file?.type || '',
+});
+
+export const buildImageEditPayload = (messages, inputs) => {
+  const lastUserMessage = getLastUserMessage(messages);
+  const prompt = getTextContent(lastUserMessage).trim();
+  const imageParameters = inputs.imageParameters;
+  const referenceFiles = getImageReferenceFiles(inputs);
+
+  if (!prompt) {
+    throw new Error('未输入提示词');
+  }
+  if (referenceFiles.length === 0) {
+    throw new Error('图生图模式需要先上传参考图');
+  }
+
+  const size = sanitizeImageSize(
+    inputs.model,
+    inputs.prompt_size,
+    imageParameters,
+  );
+  const quality = sanitizeImageQuality(
+    inputs.model,
+    inputs.prompt_quality,
+    imageParameters,
+  );
+  const responseFormat = sanitizeImageResponseFormat(
+    inputs.model,
+    inputs.prompt_response_format,
+    imageParameters,
+  );
+  const referenceUsage = sanitizeImageReferenceUsage(
+    inputs.prompt_reference_usage,
+  );
+  const imageCount = sanitizeImageCount(inputs.prompt_n, imageParameters?.n_max);
+  const formData = new FormData();
+
+  formData.append('model', inputs.model);
+  formData.append('group', inputs.group || '');
+  formData.append('prompt', prompt);
+  formData.append('n', String(imageCount));
+  if (size) {
+    formData.append('size', size);
+  }
+  if (quality) {
+    formData.append('quality', quality);
+  }
+  if (responseFormat) {
+    formData.append('response_format', responseFormat);
+  }
+  if (referenceUsage) {
+    formData.append('reference_usage', referenceUsage);
+  }
+  referenceFiles.forEach((file) => {
+    formData.append('image', file, file.name);
+  });
+
+  return {
+    formData,
+    debugSnapshot: {
+      url: API_ENDPOINTS.IMAGES_EDITS,
+      fields: {
+        model: inputs.model,
+        group: inputs.group || '',
+        prompt,
+        n: imageCount,
+        size: size || undefined,
+        quality: quality || undefined,
+        response_format: responseFormat || undefined,
+        reference_usage: referenceUsage || undefined,
+      },
+      files: {
+        image: referenceFiles.map(getFileSnapshot),
+      },
+    },
+  };
+};
+
 export const buildPayloadByEndpoint = (
   endpointType,
+  imageRequestMode,
   messages,
   systemPrompt,
   inputs,
   parameterEnabled,
 ) => {
   if (isImageGenerationEndpoint(endpointType)) {
-    return buildImagePayload(messages, inputs);
+    if (imageRequestMode === IMAGE_REQUEST_MODES.EDIT) {
+      return buildImageEditPayload(messages, inputs);
+    }
+    return buildImageGenerationPayload(messages, inputs);
   }
 
   return buildChatPayload(messages, systemPrompt, inputs, parameterEnabled);

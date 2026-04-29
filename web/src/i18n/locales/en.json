@@ -3970,6 +3970,20 @@
     "默认折叠侧边栏": "Default collapse sidebar",
     "默认测试模型": "Default Test Model",
     "默认用户消息": "Default User Message",
-    "默认补全倍率": "Default completion ratio"
+    "默认补全倍率": "Default completion ratio",
+    "请求方式": "Request mode",
+    "文生图": "Text to image",
+    "图生图": "Image edit",
+    "参考图": "Reference image",
+    "参考用途": "Reference usage",
+    "主体(subject)": "Subject",
+    "构图(composition)": "Composition",
+    "风格(style)": "Style",
+    "图生图模式需要先上传参考图": "Upload a reference image before using image edit mode",
+    "自定义请求体模式不支持图生图，请关闭自定义请求体或切换到文生图": "Custom request body mode does not support image edit. Disable custom request body or switch to text to image.",
+    "图生图重新生成需要重新上传参考图": "Image edit regeneration requires uploading the reference image again",
+    "仅支持 PNG / JPEG / WebP，单文件不超过 10 MB": "PNG / JPEG / WebP only, up to 10 MB per file",
+    "上传参考图": "Upload reference image",
+    "WebP/JPEG 上传更快": "WebP/JPEG uploads are faster"
   }
 }

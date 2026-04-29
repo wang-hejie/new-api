@@ -28,8 +28,13 @@ func TestPlaygroundRelayFormatByPath(t *testing.T) {
 			want: types.RelayFormatOpenAIImage,
 		},
 		{
+			name: "image edits",
+			path: "/pg/images/edits",
+			want: types.RelayFormatOpenAIImage,
+		},
+		{
 			name:    "unknown path",
-			path:    "/pg/images/edits",
+			path:    "/pg/unknown",
 			wantErr: true,
 		},
 	}
@@ -57,6 +62,13 @@ func TestPlaygroundImageGenerationsRelayMode(t *testing.T) {
 	got := relayconstant.Path2RelayMode("/pg/images/generations")
 	if got != relayconstant.RelayModeImagesGenerations {
 		t.Fatalf("relay mode = %d, want %d", got, relayconstant.RelayModeImagesGenerations)
+	}
+}
+
+func TestPlaygroundImageEditsRelayMode(t *testing.T) {
+	got := relayconstant.Path2RelayMode("/pg/images/edits")
+	if got != relayconstant.RelayModeImagesEdits {
+		t.Fatalf("relay mode = %d, want %d", got, relayconstant.RelayModeImagesEdits)
 	}
 }
 
@@ -138,6 +150,71 @@ func TestPlaygroundGeminiNativeImageMetadata(t *testing.T) {
 	}
 }
 
+func TestPlaygroundGPTImageMetadata(t *testing.T) {
+	tests := []struct {
+		model              string
+		wantMode           string
+		wantResponseFormat bool
+		wantSupportsEdits  bool
+		wantMetadata       bool
+	}{
+		{
+			model:              "gpt-image-1",
+			wantMode:           "gpt_image_v1",
+			wantResponseFormat: false,
+			wantSupportsEdits:  true,
+			wantMetadata:       true,
+		},
+		{
+			model:              "gpt-image-2",
+			wantMode:           "gpt_image_v2",
+			wantResponseFormat: true,
+			wantSupportsEdits:  true,
+			wantMetadata:       true,
+		},
+		{
+			model:        "gpt-image-3-preview",
+			wantMode:     "",
+			wantMetadata: false,
+		},
+		{
+			model:        "dall-e-3",
+			wantMode:     "",
+			wantMetadata: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			mode, params := getPlaygroundImageGenerationMetadata(tt.model)
+			if mode != tt.wantMode {
+				t.Fatalf("mode = %q, want %q", mode, tt.wantMode)
+			}
+			if !tt.wantMetadata {
+				if params != nil {
+					t.Fatalf("params = %#v, want nil", params)
+				}
+				return
+			}
+			if params == nil {
+				t.Fatalf("params is nil")
+			}
+			if !params.Size || !params.Quality {
+				t.Fatalf("params = %#v, want size/quality enabled", params)
+			}
+			if params.ResponseFormat != tt.wantResponseFormat {
+				t.Fatalf("response_format = %v, want %v", params.ResponseFormat, tt.wantResponseFormat)
+			}
+			if params.SupportsEdits != tt.wantSupportsEdits {
+				t.Fatalf("supports_edits = %v, want %v", params.SupportsEdits, tt.wantSupportsEdits)
+			}
+			if params.NMax != 10 {
+				t.Fatalf("n_max = %d, want 10", params.NMax)
+			}
+		})
+	}
+}
+
 func TestPlaygroundModelInfoGeminiNativeImageJSONShape(t *testing.T) {
 	mode, params := getPlaygroundImageGenerationMetadata("gemini-3.1-flash-image-preview")
 	info := PlaygroundModelInfo{
@@ -181,5 +258,34 @@ func TestPlaygroundModelInfoGeminiNativeImageJSONShape(t *testing.T) {
 	plainText := string(plainBody)
 	if strings.Contains(plainText, "image_generation_mode") || strings.Contains(plainText, "image_parameters") {
 		t.Fatalf("plain model JSON %s should omit Gemini image metadata", plainText)
+	}
+}
+
+func TestPlaygroundModelInfoGPTImageJSONShape(t *testing.T) {
+	mode, params := getPlaygroundImageGenerationMetadata("gpt-image-2")
+	info := PlaygroundModelInfo{
+		Name:                "gpt-image-2",
+		EndpointTypes:       []constant.EndpointType{constant.EndpointTypeImageGeneration},
+		ImageGenerationMode: mode,
+		ImageParameters:     params,
+	}
+
+	body, err := common.Marshal(info)
+	if err != nil {
+		t.Fatalf("marshal playground model info: %v", err)
+	}
+	bodyText := string(body)
+	for _, want := range []string{
+		`"image_generation_mode":"gpt_image_v2"`,
+		`"response_format":true`,
+		`"supports_edits":true`,
+		`"n_max":10`,
+	} {
+		if !strings.Contains(bodyText, want) {
+			t.Fatalf("JSON %s does not contain %s", bodyText, want)
+		}
+	}
+	if strings.Contains(bodyText, "aspect_ratio") {
+		t.Fatalf("JSON %s should not contain aspect_ratio capability", bodyText)
 	}
 }

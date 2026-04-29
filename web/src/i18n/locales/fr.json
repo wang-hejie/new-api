@@ -3867,6 +3867,20 @@
     "默认折叠侧边栏": "Réduire la barre latérale par défaut",
     "默认测试模型": "Modèle de test par défaut",
     "默认用户消息": "Bonjour",
-    "默认补全倍率": "Taux de complétion par défaut"
+    "默认补全倍率": "Taux de complétion par défaut",
+    "请求方式": "Mode de requête",
+    "文生图": "Texte vers image",
+    "图生图": "Édition d’image",
+    "参考图": "Image de référence",
+    "参考用途": "Usage de la référence",
+    "主体(subject)": "Sujet",
+    "构图(composition)": "Composition",
+    "风格(style)": "Style",
+    "图生图模式需要先上传参考图": "Téléversez une image de référence avant d’utiliser le mode édition d’image",
+    "自定义请求体模式不支持图生图，请关闭自定义请求体或切换到文生图": "Le mode corps de requête personnalisé ne prend pas en charge l’édition d’image. Désactivez-le ou passez au texte vers image.",
+    "图生图重新生成需要重新上传参考图": "La régénération en édition d’image nécessite de téléverser à nouveau l’image de référence",
+    "仅支持 PNG / JPEG / WebP，单文件不超过 10 MB": "PNG / JPEG / WebP uniquement, 10 Mo maximum par fichier",
+    "上传参考图": "Téléverser une image de référence",
+    "WebP/JPEG 上传更快": "Les téléversements WebP/JPEG sont plus rapides"
   }
 }

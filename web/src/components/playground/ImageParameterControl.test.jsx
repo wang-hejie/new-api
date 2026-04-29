@@ -28,6 +28,8 @@ mock.module('react-i18next', () => ({
 }));
 
 mock.module('@douyinfe/semi-ui', () => ({
+  Button: ({ children, disabled, icon }) =>
+    React.createElement('button', { disabled }, icon, children),
   InputNumber: ({ disabled, max, value }) =>
     React.createElement('input', {
       disabled,
@@ -35,6 +37,9 @@ mock.module('@douyinfe/semi-ui', () => ({
       value,
       readOnly: true,
     }),
+  Modal: {
+    confirm: () => {},
+  },
   Select: ({ optionList = [] }) =>
     React.createElement(
       'select',
@@ -47,6 +52,23 @@ mock.module('@douyinfe/semi-ui', () => ({
         ),
       ),
     ),
+  Radio: ({ children, extra, value }) =>
+    React.createElement(
+      'label',
+      { 'data-value': value },
+      children,
+      extra ? React.createElement('span', null, extra) : null,
+    ),
+  RadioGroup: ({ children, disabled, value }) =>
+    React.createElement(
+      'div',
+      { 'data-disabled': disabled ? 'true' : 'false', 'data-value': value },
+      children,
+    ),
+  Toast: {
+    success: () => {},
+    warning: () => {},
+  },
   Tooltip: ({ children }) => React.createElement('span', null, children),
   Typography: {
     Text: ({ children }) => React.createElement('span', null, children),
@@ -58,6 +80,11 @@ mock.module('lucide-react', () => ({
   Layers: () => React.createElement('i', null),
   SlidersHorizontal: () => React.createElement('i', null),
   FileOutput: () => React.createElement('i', null),
+  Sparkles: () => React.createElement('i', null),
+  Repeat2: () => React.createElement('i', null),
+  ImagePlus: () => React.createElement('i', null),
+  Trash2: () => React.createElement('i', null),
+  UploadCloud: () => React.createElement('i', null),
 }));
 
 const playgroundImageHelpers = {

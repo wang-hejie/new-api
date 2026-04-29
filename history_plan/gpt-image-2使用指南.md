@@ -104,6 +104,15 @@ Content-Type: application/json
 | `aspect_ratio=wide`(不传 size) | 1839×855 | 29s | 按 1 张成功生成计费 |
 | `response_format=url` | URL,1024×1024 PNG | 24s | 按 1 张成功生成计费 |
 
+> **⚠️ 关于 `aspect_ratio=wide` 的实测复盘（2026-04-29 二次回归）**
+>
+> 用相同 prompt（`cinematic panorama of a desert canyon`）做反向对照实测发现：
+> - 传 `aspect_ratio=wide` → 1983×793（2.5:1 超宽）
+> - **不传 `aspect_ratio`，仅用 panorama prompt** → 1944×809（2.4:1 超宽，几乎等价）
+> - 用中性 prompt（如 `a single red apple on a clean white background`）+ 任一 `aspect_ratio` 值（square/portrait/landscape/wide） → **统统返回 1254×1254 方图**，与不传 `aspect_ratio` 完全一致
+>
+> 结论：本表第 4 行"`aspect_ratio=wide` 返 1839×855"是 prompt 字面词 `panorama` 触发的尺寸，**与 `aspect_ratio` 字段本身无关**。当前上游 `aspect_ratio` 入参被静默忽略（HTTP 200 但对输出无独立影响）。需要超宽图请在 prompt 中加 `panorama / cinematic ultrawide` 等关键词，或使用 `size=1536x1024` 显式指定。
+
 ---
 
 ## 4. POST `/v1/images/edits` — 参考图编辑

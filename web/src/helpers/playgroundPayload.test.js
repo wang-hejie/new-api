@@ -20,14 +20,18 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, test } from 'bun:test';
 import {
   ENDPOINT_TYPES,
+  IMAGE_REQUEST_MODES,
   MESSAGE_ROLES,
 } from '../constants/playground.constants';
 import {
   buildChatPayload,
+  buildImageEditPayload,
+  buildImageGenerationPayload,
   buildImagePayload,
   buildImageResponseContent,
   buildPayloadByEndpoint,
   getApiEndpointByEndpointType,
+  getApiEndpointForRequest,
   getEndpointTypeForModel,
   getEndpointTypeFromCustomBody,
   getImageQualityOptionsForModel,
@@ -67,7 +71,12 @@ describe('playground payload helpers', () => {
           ],
         },
       ],
-      baseInputs,
+      {
+        ...baseInputs,
+        imageParameters: {
+          response_format: false,
+        },
+      },
     );
 
     expect(payload).toEqual({
@@ -280,6 +289,7 @@ describe('playground payload helpers', () => {
     expect(
       buildPayloadByEndpoint(
         ENDPOINT_TYPES.OPENAI,
+        IMAGE_REQUEST_MODES.GENERATION,
         messages,
         'system prompt',
         inputs,
@@ -293,6 +303,7 @@ describe('playground payload helpers', () => {
   test('buildPayloadByEndpoint creates image payload for image-generation models', () => {
     const payload = buildPayloadByEndpoint(
       ENDPOINT_TYPES.IMAGE_GENERATION,
+      IMAGE_REQUEST_MODES.GENERATION,
       [
         {
           role: MESSAGE_ROLES.USER,
@@ -300,7 +311,12 @@ describe('playground payload helpers', () => {
         },
       ],
       'ignored system prompt',
-      baseInputs,
+      {
+        ...baseInputs,
+        imageParameters: {
+          response_format: false,
+        },
+      },
       {
         temperature: true,
         top_p: true,
@@ -315,6 +331,190 @@ describe('playground payload helpers', () => {
       size: '1024x1024',
       quality: 'auto',
     });
+  });
+
+  test('buildImageGenerationPayload keeps gpt-image-2 response_format when enabled by metadata', () => {
+    const payload = buildImageGenerationPayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'draw a clean product photo',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gpt-image-2',
+        prompt_size: '1536x1024',
+        prompt_quality: 'low',
+        prompt_response_format: 'url',
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: true,
+          n_max: 10,
+          supports_edits: true,
+        },
+      },
+    );
+
+    expect(payload.response_format).toBe('url');
+  });
+
+  test('buildImageEditPayload creates multipart payload and debug snapshot', () => {
+    const file = new File(['image bytes'], 'apple.webp', {
+      type: 'image/webp',
+    });
+    const payload = buildImageEditPayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'change the apple color to bright green',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gpt-image-2',
+        prompt_size: '1024x1024',
+        prompt_quality: 'low',
+        prompt_response_format: 'url',
+        prompt_reference_usage: 'subject',
+        image_reference_files: [file],
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: true,
+          n_max: 10,
+          supports_edits: true,
+        },
+      },
+    );
+
+    expect(payload.formData).toBeInstanceOf(FormData);
+    expect(payload.formData.get('model')).toBe('gpt-image-2');
+    expect(payload.formData.get('prompt')).toBe(
+      'change the apple color to bright green',
+    );
+    expect(payload.formData.get('response_format')).toBe('url');
+    expect(payload.formData.get('reference_usage')).toBe('subject');
+    const imageFile = payload.formData.get('image');
+    expect(imageFile.name).toBe('apple.webp');
+    expect(imageFile.size).toBe(11);
+    expect(imageFile.type).toBe('image/webp');
+    expect(payload.debugSnapshot).toEqual({
+      url: '/pg/images/edits',
+      fields: {
+        model: 'gpt-image-2',
+        group: 'default',
+        prompt: 'change the apple color to bright green',
+        n: 2,
+        size: '1024x1024',
+        quality: 'low',
+        response_format: 'url',
+        reference_usage: 'subject',
+      },
+      files: {
+        image: [{ name: 'apple.webp', size: 11, type: 'image/webp' }],
+      },
+    });
+  });
+
+  test('buildImageEditPayload defaults invalid reference_usage and omits disabled response_format', () => {
+    const file = new File(['image bytes'], 'apple.png', {
+      type: 'image/png',
+    });
+    const payload = buildImageEditPayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'keep the same product shape',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gpt-image-1',
+        prompt_size: 'auto',
+        prompt_quality: 'high',
+        prompt_response_format: 'url',
+        prompt_reference_usage: 'invalid-usage',
+        image_reference_files: [file],
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: false,
+          n_max: 10,
+          supports_edits: true,
+        },
+      },
+    );
+
+    expect(payload.formData.get('reference_usage')).toBe('subject');
+    expect(payload.formData.has('response_format')).toBe(false);
+    expect(payload.debugSnapshot.fields.reference_usage).toBe('subject');
+    expect(payload.debugSnapshot.fields.response_format).toBeUndefined();
+  });
+
+  test('buildPayloadByEndpoint creates edit multipart payload and requires a reference image', () => {
+    const file = new File(['image bytes'], 'style.png', {
+      type: 'image/png',
+    });
+    const payload = buildPayloadByEndpoint(
+      ENDPOINT_TYPES.IMAGE_GENERATION,
+      IMAGE_REQUEST_MODES.EDIT,
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'use this as the style reference',
+        },
+      ],
+      'ignored system prompt',
+      {
+        ...baseInputs,
+        model: 'gpt-image-2',
+        prompt_reference_usage: 'style',
+        image_reference_files: [file],
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: true,
+          n_max: 10,
+          supports_edits: true,
+        },
+      },
+      {},
+    );
+
+    expect(payload.formData).toBeInstanceOf(FormData);
+    expect(payload.formData.get('reference_usage')).toBe('style');
+    expect(payload.debugSnapshot.url).toBe('/pg/images/edits');
+
+    expect(() =>
+      buildPayloadByEndpoint(
+        ENDPOINT_TYPES.IMAGE_GENERATION,
+        IMAGE_REQUEST_MODES.EDIT,
+        [
+          {
+            role: MESSAGE_ROLES.USER,
+            content: 'use this as the style reference',
+          },
+        ],
+        null,
+        {
+          ...baseInputs,
+          model: 'gpt-image-2',
+          image_reference_files: [],
+        },
+        {},
+      ),
+    ).toThrow('图生图模式需要先上传参考图');
+  });
+
+  test('getApiEndpointForRequest dispatches edit mode to images edits endpoint', () => {
+    expect(
+      getApiEndpointForRequest({
+        endpointType: ENDPOINT_TYPES.IMAGE_GENERATION,
+        imageRequestMode: IMAGE_REQUEST_MODES.EDIT,
+      }),
+    ).toBe('/pg/images/edits');
   });
 
   test('getApiEndpointByEndpointType dispatches image requests to images generations endpoint', () => {

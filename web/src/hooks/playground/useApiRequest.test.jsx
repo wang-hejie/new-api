@@ -348,6 +348,69 @@ describe('useApiRequest endpoint dispatch', () => {
     expect(harness.savedMessages).toHaveLength(1);
   });
 
+  test('image edit requests use explicit edits endpoint without JSON content type', async () => {
+    const harness = await createHookHarness();
+    const fetchCalls = [];
+    const formData = new FormData();
+    const file = new File(['image bytes'], 'apple.png', {
+      type: 'image/png',
+    });
+    formData.append('model', 'gpt-image-2');
+    formData.append('prompt', 'change the apple color to bright green');
+    formData.append('reference_usage', 'subject');
+    formData.append('image', file, file.name);
+
+    const payload = {
+      formData,
+      debugSnapshot: {
+        url: API_ENDPOINTS.IMAGES_EDITS,
+        fields: {
+          model: 'gpt-image-2',
+          prompt: 'change the apple color to bright green',
+          reference_usage: 'subject',
+        },
+        files: {
+          image: [{ name: 'apple.png', size: 11, type: 'image/png' }],
+        },
+      },
+    };
+
+    globalThis.fetch = async (url, options) => {
+      fetchCalls.push({ url, options });
+      return {
+        ok: true,
+        json: async () => ({
+          data: [{ url: 'https://example.com/edited.png' }],
+        }),
+      };
+    };
+
+    harness.hookResult.sendRequest(
+      payload,
+      false,
+      ENDPOINT_TYPES.IMAGE_GENERATION,
+      API_ENDPOINTS.IMAGES_EDITS,
+    );
+    await waitForAsyncWork();
+    await waitForAsyncWork();
+
+    expect(fetchCalls).toHaveLength(1);
+    expect(fetchCalls[0].url).toBe(API_ENDPOINTS.IMAGES_EDITS);
+    expect(fetchCalls[0].options.method).toBe('POST');
+    expect(fetchCalls[0].options.headers).toEqual({
+      'New-Api-User': 'test-user',
+    });
+    expect(fetchCalls[0].options.body).toBe(formData);
+    expect(harness.debugData.request).toEqual(payload.debugSnapshot);
+    expect(harness.debugData.request.formData).toBeUndefined();
+    expect(harness.messages.at(-1).content).toEqual([
+      {
+        type: 'image_url',
+        image_url: { url: 'https://example.com/edited.png' },
+      },
+    ]);
+  });
+
   test('chat stream requests keep using chat completions SSE endpoint', async () => {
     const harness = await createHookHarness();
     const payload = {

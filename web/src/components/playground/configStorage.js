@@ -24,6 +24,25 @@ import {
 
 const MESSAGES_STORAGE_KEY = 'playground_messages';
 
+export const sanitizePlaygroundInputsForStorage = (inputs = {}) => {
+  const sanitized = {
+    ...DEFAULT_CONFIG.inputs,
+    ...inputs,
+  };
+  delete sanitized.image_reference_files;
+  delete sanitized.image_mask_file;
+  return sanitized;
+};
+
+export const sanitizePlaygroundConfig = (config = {}) => ({
+  ...config,
+  inputs: sanitizePlaygroundInputsForStorage(config.inputs),
+  parameterEnabled: {
+    ...DEFAULT_CONFIG.parameterEnabled,
+    ...(config.parameterEnabled || {}),
+  },
+});
+
 /**
  * 保存配置到 localStorage
  * @param {Object} config - 要保存的配置对象
@@ -31,7 +50,7 @@ const MESSAGES_STORAGE_KEY = 'playground_messages';
 export const saveConfig = (config) => {
   try {
     const configToSave = {
-      ...config,
+      ...sanitizePlaygroundConfig(config),
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(configToSave));
@@ -68,21 +87,24 @@ export const loadConfig = () => {
       const parsedMaxTokens = parseInt(parsedConfig?.inputs?.max_tokens, 10);
 
       const mergedConfig = {
-        inputs: {
-          ...DEFAULT_CONFIG.inputs,
+        inputs: sanitizePlaygroundInputsForStorage({
           ...parsedConfig.inputs,
           max_tokens: Number.isNaN(parsedMaxTokens)
             ? parsedConfig?.inputs?.max_tokens
             : parsedMaxTokens,
-        },
+        }),
         parameterEnabled: {
           ...DEFAULT_CONFIG.parameterEnabled,
           ...parsedConfig.parameterEnabled,
         },
         showDebugPanel:
-          parsedConfig.showDebugPanel || DEFAULT_CONFIG.showDebugPanel,
+          typeof parsedConfig.showDebugPanel === 'boolean'
+            ? parsedConfig.showDebugPanel
+            : DEFAULT_CONFIG.showDebugPanel,
         customRequestMode:
-          parsedConfig.customRequestMode || DEFAULT_CONFIG.customRequestMode,
+          typeof parsedConfig.customRequestMode === 'boolean'
+            ? parsedConfig.customRequestMode
+            : DEFAULT_CONFIG.customRequestMode,
         customRequestBody:
           parsedConfig.customRequestBody || DEFAULT_CONFIG.customRequestBody,
       };
@@ -175,7 +197,7 @@ export const getConfigTimestamp = () => {
 export const exportConfig = (config, messages = null) => {
   try {
     const configToExport = {
-      ...config,
+      ...sanitizePlaygroundConfig(config),
       messages: messages || loadMessages(), // 包含消息数据
       exportTime: new Date().toISOString(),
       version: '1.0',
@@ -206,9 +228,10 @@ export const importConfig = (file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const importedConfig = JSON.parse(e.target.result);
+          const rawImportedConfig = JSON.parse(e.target.result);
 
-          if (importedConfig.inputs && importedConfig.parameterEnabled) {
+          if (rawImportedConfig.inputs && rawImportedConfig.parameterEnabled) {
+            const importedConfig = sanitizePlaygroundConfig(rawImportedConfig);
             // 如果导入的配置包含消息，也一起导入
             if (
               importedConfig.messages &&

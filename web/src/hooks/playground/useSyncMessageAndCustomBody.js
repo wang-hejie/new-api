@@ -32,6 +32,7 @@ export const useSyncMessageAndCustomBody = (
   setMessage,
   debouncedSaveConfig,
   endpointType,
+  isModelMetadataReady = true,
 ) => {
   const isUpdatingFromMessage = useRef(false);
   const isUpdatingFromCustomBody = useRef(false);
@@ -58,6 +59,7 @@ export const useSyncMessageAndCustomBody = (
   }, []);
 
   const syncMessageToCustomBody = useCallback(() => {
+    if (!isModelMetadataReady) return;
     if (!customRequestMode || isUpdatingFromCustomBody.current) return;
     if (endpointType === ENDPOINT_TYPES.IMAGE_GENERATION) return;
 
@@ -107,9 +109,11 @@ export const useSyncMessageAndCustomBody = (
     setCustomRequestBody,
     debouncedSaveConfig,
     endpointType,
+    isModelMetadataReady,
   ]);
 
   const syncCustomBodyToMessage = useCallback(() => {
+    if (!isModelMetadataReady) return;
     if (!customRequestMode || isUpdatingFromMessage.current) return;
     if (endpointType === ENDPOINT_TYPES.IMAGE_GENERATION) return;
 
@@ -148,6 +152,7 @@ export const useSyncMessageAndCustomBody = (
     getMessageHash,
     setMessage,
     endpointType,
+    isModelMetadataReady,
   ]);
 
   return {

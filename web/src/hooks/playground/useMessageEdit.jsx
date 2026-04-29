@@ -22,13 +22,19 @@ import { Toast, Modal } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import {
   getTextContent,
-  buildPayloadByEndpoint,
   createLoadingAssistantMessage,
-} from '../../helpers';
+} from '../../helpers/utils';
+import {
+  buildPayloadByEndpoint,
+  getApiEndpointForRequest,
+} from '../../helpers/playgroundPayload';
 import {
   ENDPOINT_TYPES,
   MESSAGE_ROLES,
 } from '../../constants/playground.constants';
+import { shouldBlockImageEditRegeneration } from './imageEditGuards';
+
+export { shouldBlockImageEditRegeneration };
 
 export const useMessageEdit = (
   setMessage,
@@ -37,6 +43,7 @@ export const useMessageEdit = (
   sendRequest,
   saveMessages,
   endpointType,
+  imageRequestMode,
 ) => {
   const { t } = useTranslation();
   const [editingMessageId, setEditingMessageId] = useState(null);
@@ -101,13 +108,29 @@ export const useMessageEdit = (
               setTimeout(() => saveMessages(messagesUntilUser), 0);
 
               setTimeout(() => {
+                if (
+                  shouldBlockImageEditRegeneration({
+                    endpointType,
+                    imageRequestMode,
+                    imageReferenceFiles: inputs.image_reference_files,
+                  })
+                ) {
+                  Toast.warning(t('图生图重新生成需要重新上传参考图'));
+                  setMessage(messagesUntilUser);
+                  return;
+                }
                 const payload = buildPayloadByEndpoint(
                   endpointType,
+                  imageRequestMode,
                   messagesUntilUser,
                   null,
                   inputs,
                   parameterEnabled,
                 );
+                const endpoint = getApiEndpointForRequest({
+                  endpointType,
+                  imageRequestMode,
+                });
                 setMessage((prevMsg) => [
                   ...prevMsg,
                   createLoadingAssistantMessage(),
@@ -118,6 +141,7 @@ export const useMessageEdit = (
                     ? false
                     : inputs.stream,
                   endpointType,
+                  endpoint,
                 );
               }, 100);
             },
@@ -150,6 +174,7 @@ export const useMessageEdit = (
     setMessage,
     saveMessages,
     endpointType,
+    imageRequestMode,
   ]);
 
   const handleEditCancel = useCallback(() => {

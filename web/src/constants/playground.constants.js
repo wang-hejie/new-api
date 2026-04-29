@@ -77,6 +77,7 @@ export const DEBUG_TABS = {
 export const API_ENDPOINTS = {
   CHAT_COMPLETIONS: '/pg/chat/completions',
   IMAGES_GENERATIONS: '/pg/images/generations',
+  IMAGES_EDITS: '/pg/images/edits',
   USER_MODELS: '/api/user/playground/models',
   USER_GROUPS: '/api/user/self/groups',
 };
@@ -84,6 +85,17 @@ export const API_ENDPOINTS = {
 export const ENDPOINT_TYPES = {
   OPENAI: 'openai',
   IMAGE_GENERATION: 'image-generation',
+};
+
+export const IMAGE_REQUEST_MODES = {
+  GENERATION: 'generation',
+  EDIT: 'edit',
+};
+
+export const IMAGE_REFERENCE_USAGE = {
+  SUBJECT: 'subject',
+  COMPOSITION: 'composition',
+  STYLE: 'style',
 };
 
 // ========== 配置默认值 ==========
@@ -104,6 +116,9 @@ export const DEFAULT_CONFIG = {
     prompt_quality: 'auto',
     prompt_n: 1,
     prompt_response_format: '',
+    prompt_reference_usage: IMAGE_REFERENCE_USAGE.SUBJECT,
+    image_request_mode: IMAGE_REQUEST_MODES.GENERATION,
+    image_reference_files: [],
   },
   parameterEnabled: {
     temperature: true,

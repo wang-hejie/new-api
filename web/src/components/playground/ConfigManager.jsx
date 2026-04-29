@@ -27,6 +27,7 @@ import {
   clearConfig,
   hasStoredConfig,
   getConfigTimestamp,
+  sanitizePlaygroundConfig,
 } from './configStorage';
 
 const ConfigManager = ({
@@ -43,7 +44,7 @@ const ConfigManager = ({
     try {
       // 在导出前先保存当前配置，确保导出的是最新内容
       const configWithTimestamp = {
-        ...currentConfig,
+        ...sanitizePlaygroundConfig(currentConfig),
         timestamp: new Date().toISOString(),
       };
       localStorage.setItem(

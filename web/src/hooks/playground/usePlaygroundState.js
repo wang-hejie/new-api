@@ -24,6 +24,7 @@ import {
   getDefaultMessages,
   DEFAULT_CONFIG,
   DEBUG_TABS,
+  IMAGE_REQUEST_MODES,
   MESSAGE_STATUS,
 } from '../../constants/playground.constants';
 import {
@@ -31,12 +32,15 @@ import {
   saveConfig,
   loadMessages,
   saveMessages,
+  sanitizePlaygroundConfig,
+  sanitizePlaygroundInputsForStorage,
 } from '../../components/playground/configStorage';
 import { processIncompleteThinkTags } from '../../helpers';
 import {
   getEndpointTypeForModel,
   getEndpointTypeFromCustomBody,
 } from '../../helpers';
+import { normalizeImageRequestMode } from './imageEditGuards';
 
 const findModelOption = (models, modelName) =>
   (models || []).find((model) => model.value === modelName);
@@ -70,9 +74,11 @@ export const usePlaygroundState = () => {
   });
 
   // 基础配置状态
-  const [inputs, setInputs] = useState(
-    savedConfig.inputs || DEFAULT_CONFIG.inputs,
-  );
+  const [inputs, setInputs] = useState(() => ({
+    ...DEFAULT_CONFIG.inputs,
+    ...(savedConfig.inputs || {}),
+    image_reference_files: [],
+  }));
   const [parameterEnabled, setParameterEnabled] = useState(
     savedConfig.parameterEnabled || DEFAULT_CONFIG.parameterEnabled,
   );
@@ -125,13 +131,32 @@ export const usePlaygroundState = () => {
     [models, inputs.model],
   );
   const imageParameters = selectedModelOption?.imageParameters;
+  const imageRequestMode = useMemo(() => {
+    const supportsEdits = selectedModelOption?.imageParameters?.supports_edits;
+    const persisted =
+      inputs.image_request_mode || IMAGE_REQUEST_MODES.GENERATION;
+    return normalizeImageRequestMode({
+      imageRequestMode: persisted,
+      supportsEdits,
+    });
+  }, [selectedModelOption, inputs.image_request_mode]);
   const inputsWithImageParameters = useMemo(
     () => ({
       ...inputs,
       imageParameters,
+      imageRequestMode,
     }),
-    [inputs, imageParameters],
+    [inputs, imageParameters, imageRequestMode],
   );
+
+  useEffect(() => {
+    if (
+      imageRequestMode === IMAGE_REQUEST_MODES.GENERATION &&
+      (inputs.image_reference_files || []).length > 0
+    ) {
+      setInputs((prev) => ({ ...prev, image_reference_files: [] }));
+    }
+  }, [imageRequestMode, inputs.image_reference_files]);
 
   // 当语言改变时，如果是默认消息则更新
   useEffect(() => {
@@ -191,7 +216,7 @@ export const usePlaygroundState = () => {
 
     saveConfigTimeoutRef.current = setTimeout(() => {
       const configToSave = {
-        inputs,
+        inputs: sanitizePlaygroundInputsForStorage(inputs),
         parameterEnabled,
         showDebugPanel,
         customRequestMode,
@@ -211,41 +236,46 @@ export const usePlaygroundState = () => {
 
   // 配置导入/重置
   const handleConfigImport = useCallback((importedConfig) => {
-    if (importedConfig.inputs) {
-      const parsedMaxTokens = parseInt(importedConfig.inputs.max_tokens, 10);
+    const sanitizedConfig = sanitizePlaygroundConfig(importedConfig);
+    if (sanitizedConfig.inputs) {
+      const parsedMaxTokens = parseInt(sanitizedConfig.inputs.max_tokens, 10);
       setInputs((prev) => ({
         ...prev,
-        ...importedConfig.inputs,
+        ...sanitizedConfig.inputs,
+        image_reference_files: [],
         max_tokens: Number.isNaN(parsedMaxTokens)
-          ? importedConfig.inputs.max_tokens
+          ? sanitizedConfig.inputs.max_tokens
           : parsedMaxTokens,
       }));
     }
-    if (importedConfig.parameterEnabled) {
+    if (sanitizedConfig.parameterEnabled) {
       setParameterEnabled((prev) => ({
         ...prev,
-        ...importedConfig.parameterEnabled,
+        ...sanitizedConfig.parameterEnabled,
       }));
     }
-    if (typeof importedConfig.showDebugPanel === 'boolean') {
-      setShowDebugPanel(importedConfig.showDebugPanel);
+    if (typeof sanitizedConfig.showDebugPanel === 'boolean') {
+      setShowDebugPanel(sanitizedConfig.showDebugPanel);
     }
-    if (importedConfig.customRequestMode) {
-      setCustomRequestMode(importedConfig.customRequestMode);
+    if (typeof sanitizedConfig.customRequestMode === 'boolean') {
+      setCustomRequestMode(sanitizedConfig.customRequestMode);
     }
-    if (importedConfig.customRequestBody) {
-      setCustomRequestBody(importedConfig.customRequestBody);
+    if (typeof sanitizedConfig.customRequestBody === 'string') {
+      setCustomRequestBody(sanitizedConfig.customRequestBody);
     }
     // 如果导入的配置包含消息，也恢复消息
-    if (importedConfig.messages && Array.isArray(importedConfig.messages)) {
-      setMessage(importedConfig.messages);
+    if (sanitizedConfig.messages && Array.isArray(sanitizedConfig.messages)) {
+      setMessage(sanitizedConfig.messages);
     }
   }, []);
 
   const handleConfigReset = useCallback((options = {}) => {
     const { resetMessages = false } = options;
 
-    setInputs(DEFAULT_CONFIG.inputs);
+    setInputs({
+      ...DEFAULT_CONFIG.inputs,
+      image_reference_files: [],
+    });
     setParameterEnabled(DEFAULT_CONFIG.parameterEnabled);
     setShowDebugPanel(DEFAULT_CONFIG.showDebugPanel);
     setCustomRequestMode(DEFAULT_CONFIG.customRequestMode);
@@ -308,6 +338,7 @@ export const usePlaygroundState = () => {
     customRequestBody,
     endpointType,
     selectedEndpointType,
+    imageRequestMode,
 
     // UI状态
     showSettings,

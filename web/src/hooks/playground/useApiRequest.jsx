@@ -303,10 +303,13 @@ export const useApiRequest = (
   );
 
   const handleImageRequest = useCallback(
-    async (payload) => {
+    async (payload, endpoint = API_ENDPOINTS.IMAGES_GENERATIONS) => {
+      const isMultipart = payload && payload.formData instanceof FormData;
+      const debugView = isMultipart ? payload.debugSnapshot : payload;
+
       setDebugData((prev) => ({
         ...prev,
-        request: payload,
+        request: debugView,
         timestamp: new Date().toISOString(),
         response: null,
         sseMessages: null,
@@ -315,14 +318,23 @@ export const useApiRequest = (
       setActiveDebugTab(DEBUG_TABS.REQUEST);
 
       try {
-        const response = await fetch(API_ENDPOINTS.IMAGES_GENERATIONS, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'New-Api-User': getUserIdFromLocalStorage(),
-          },
-          body: JSON.stringify(payload),
-        });
+        const fetchInit = isMultipart
+          ? {
+              method: 'POST',
+              headers: {
+                'New-Api-User': getUserIdFromLocalStorage(),
+              },
+              body: payload.formData,
+            }
+          : {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'New-Api-User': getUserIdFromLocalStorage(),
+              },
+              body: JSON.stringify(payload),
+            };
+        const response = await fetch(endpoint, fetchInit);
 
         if (!response.ok) {
           let errorBody = '';
@@ -670,9 +682,14 @@ export const useApiRequest = (
 
   // 发送请求
   const sendRequest = useCallback(
-    (payload, isStream, endpointType = ENDPOINT_TYPES.OPENAI) => {
+    (
+      payload,
+      isStream,
+      endpointType = ENDPOINT_TYPES.OPENAI,
+      endpoint = undefined,
+    ) => {
       if (endpointType === ENDPOINT_TYPES.IMAGE_GENERATION) {
-        handleImageRequest(payload);
+        handleImageRequest(payload, endpoint || API_ENDPOINTS.IMAGES_GENERATIONS);
         return;
       }
 

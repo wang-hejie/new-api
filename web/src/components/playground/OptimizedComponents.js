@@ -23,6 +23,16 @@ import MessageActions from './MessageActions';
 import SettingsPanel from './SettingsPanel';
 import DebugPanel from './DebugPanel';
 
+const normalizeInputsForMemo = (inputs = {}) => ({
+  ...inputs,
+  image_reference_files: (inputs.image_reference_files || []).map((file) => ({
+    name: file?.name || '',
+    size: file?.size || 0,
+    type: file?.type || '',
+    lastModified: file?.lastModified || 0,
+  })),
+});
+
 // 优化的消息内容组件
 export const OptimizedMessageContent = React.memo(
   MessageContent,
@@ -63,7 +73,8 @@ export const OptimizedSettingsPanel = React.memo(
   SettingsPanel,
   (prevProps, nextProps) => {
     return (
-      JSON.stringify(prevProps.inputs) === JSON.stringify(nextProps.inputs) &&
+      JSON.stringify(normalizeInputsForMemo(prevProps.inputs)) ===
+        JSON.stringify(normalizeInputsForMemo(nextProps.inputs)) &&
       JSON.stringify(prevProps.parameterEnabled) ===
         JSON.stringify(nextProps.parameterEnabled) &&
       JSON.stringify(prevProps.models) === JSON.stringify(nextProps.models) &&
@@ -71,6 +82,7 @@ export const OptimizedSettingsPanel = React.memo(
       prevProps.customRequestMode === nextProps.customRequestMode &&
       prevProps.customRequestBody === nextProps.customRequestBody &&
       prevProps.endpointType === nextProps.endpointType &&
+      prevProps.imageRequestMode === nextProps.imageRequestMode &&
       prevProps.showDebugPanel === nextProps.showDebugPanel &&
       prevProps.showSettings === nextProps.showSettings &&
       JSON.stringify(prevProps.previewPayload) ===

@@ -37,6 +37,7 @@ import { useDataLoader } from '../../hooks/playground/useDataLoader';
 // Constants and utils
 import {
   ENDPOINT_TYPES,
+  IMAGE_REQUEST_MODES,
   MESSAGE_ROLES,
   ERROR_MESSAGES,
 } from '../../constants/playground.constants';
@@ -48,6 +49,7 @@ import {
   createLoadingAssistantMessage,
   getTextContent,
   buildPayloadByEndpoint,
+  getApiEndpointForRequest,
   encodeToBase64,
 } from '../../helpers';
 
@@ -93,6 +95,7 @@ const Playground = () => {
     customRequestMode,
     customRequestBody,
     endpointType,
+    imageRequestMode,
     showSettings,
     models,
     groups,
@@ -149,6 +152,7 @@ const Playground = () => {
     sendRequest,
     saveMessagesImmediately,
     endpointType,
+    imageRequestMode,
   );
 
   // 消息和自定义请求体同步
@@ -162,6 +166,7 @@ const Playground = () => {
       setMessage,
       debouncedSaveConfig,
       endpointType,
+      models.length > 0,
     );
 
   // 角色信息
@@ -179,6 +184,22 @@ const Playground = () => {
       avatar: getLogo(),
     },
   };
+
+  const isImageGeneration = endpointType === ENDPOINT_TYPES.IMAGE_GENERATION;
+  const isImageEditMode =
+    isImageGeneration && imageRequestMode === IMAGE_REQUEST_MODES.EDIT;
+  const hasImageReferenceFiles =
+    (inputs.image_reference_files || []).length > 0;
+  const isImageEditMissingReference =
+    isImageEditMode && !customRequestMode && !hasImageReferenceFiles;
+  const isImageEditCustomRequestBlocked = isImageEditMode && customRequestMode;
+  const sendDisabled =
+    isImageEditMissingReference || isImageEditCustomRequestBlocked;
+  const sendDisabledReason = isImageEditCustomRequestBlocked
+    ? t('自定义请求体模式不支持图生图，请关闭自定义请求体或切换到文生图')
+    : isImageEditMissingReference
+      ? t('图生图模式需要先上传参考图')
+      : '';
 
   // 消息操作
   const messageActions = useMessageActions(
@@ -233,13 +254,15 @@ const Playground = () => {
         }
       }
 
-      return buildPayloadByEndpoint(
+      const payload = buildPayloadByEndpoint(
         endpointType,
+        imageRequestMode,
         messages,
         null,
         inputs,
         parameterEnabled,
       );
+      return payload?.debugSnapshot || payload;
     } catch (error) {
       console.error('构造预览请求体失败:', error);
       return null;
@@ -251,17 +274,37 @@ const Playground = () => {
     customRequestMode,
     customRequestBody,
     endpointType,
+    imageRequestMode,
   ]);
 
   // 发送消息
   function onMessageSend(content, attachment) {
     console.log('attachment: ', attachment);
 
-    const isImageGeneration = endpointType === ENDPOINT_TYPES.IMAGE_GENERATION;
     const textContent = typeof content === 'string' ? content.trim() : '';
 
     if (isImageGeneration && !customRequestMode && !textContent) {
       Toast.warning(t('未输入提示词'));
+      return;
+    }
+    if (
+      isImageGeneration &&
+      customRequestMode &&
+      imageRequestMode === IMAGE_REQUEST_MODES.EDIT
+    ) {
+      Toast.warning(
+        t('自定义请求体模式不支持图生图，请关闭自定义请求体或切换到文生图'),
+      );
+      return;
+    }
+    if (
+      isImageGeneration &&
+      !customRequestMode &&
+      imageRequestMode === IMAGE_REQUEST_MODES.EDIT &&
+      (!inputs.image_reference_files ||
+        inputs.image_reference_files.length === 0)
+    ) {
+      Toast.warning(t('图生图模式需要先上传参考图'));
       return;
     }
 
@@ -273,6 +316,10 @@ const Playground = () => {
     if (customRequestMode && customRequestBody) {
       try {
         const customPayload = JSON.parse(customRequestBody);
+        const endpoint = getApiEndpointForRequest({
+          endpointType,
+          imageRequestMode,
+        });
 
         setMessage((prevMessage) => {
           const newMessages = [...prevMessage, userMessage, loadingMessage];
@@ -282,6 +329,7 @@ const Playground = () => {
             customPayload,
             isImageGeneration ? false : customPayload.stream !== false,
             endpointType,
+            endpoint,
           );
 
           // 发送消息后保存，传入新消息列表
@@ -316,15 +364,21 @@ const Playground = () => {
 
       const payload = buildPayloadByEndpoint(
         endpointType,
+        imageRequestMode,
         newMessages,
         null,
         inputs,
         parameterEnabled,
       );
+      const endpoint = getApiEndpointForRequest({
+        endpointType,
+        imageRequestMode,
+      });
       sendRequest(
         payload,
         isImageGeneration ? false : inputs.stream,
         endpointType,
+        endpoint,
       );
 
       // 禁用图片模式
@@ -497,6 +551,8 @@ const Playground = () => {
     imageEnabled:
       (inputs.imageEnabled || false) &&
       endpointType !== ENDPOINT_TYPES.IMAGE_GENERATION,
+    sendDisabled,
+    sendDisabledReason,
   };
 
   return (
@@ -526,6 +582,7 @@ const Playground = () => {
                 customRequestMode={customRequestMode}
                 customRequestBody={customRequestBody}
                 endpointType={endpointType}
+                imageRequestMode={imageRequestMode}
                 onInputChange={handleInputChange}
                 onParameterToggle={handleParameterToggle}
                 onCloseSettings={() => setShowSettings(false)}
@@ -559,6 +616,7 @@ const Playground = () => {
                   renderCustomChatContent={renderCustomChatContent}
                   renderChatBoxAction={renderChatBoxAction}
                   endpointType={endpointType}
+                  imageRequestMode={imageRequestMode}
                 />
               </div>
 

@@ -24,7 +24,8 @@ import { usePlayground } from '../../contexts/PlaygroundContext';
 
 const CustomInputRender = (props) => {
   const { t } = useTranslation();
-  const { onPasteImage, imageEnabled } = usePlayground();
+  const { onPasteImage, imageEnabled, sendDisabled, sendDisabledReason } =
+    usePlayground();
   const { detailProps } = props;
   const { clearContextNode, uploadNode, inputNode, sendNode, onClick } =
     detailProps;
@@ -121,7 +122,13 @@ const CustomInputRender = (props) => {
 
   // 发送按钮
   const styledSendNode = React.cloneElement(sendNode, {
-    className: `!rounded-full !bg-purple-500 hover:!bg-purple-600 flex-shrink-0 transition-all ${sendNode.props.className || ''}`,
+    disabled: sendDisabled || sendNode.props.disabled,
+    title: sendDisabledReason || sendNode.props.title,
+    className: `!rounded-full flex-shrink-0 transition-all ${
+      sendDisabled
+        ? '!bg-gray-300 hover:!bg-gray-300 !cursor-not-allowed'
+        : '!bg-purple-500 hover:!bg-purple-600'
+    } ${sendNode.props.className || ''}`,
     style: {
       ...sendNode.props.style,
       width: '32px',

@@ -19,6 +19,8 @@ func playgroundRelayFormatByPath(path string) (types.RelayFormat, error) {
 		return types.RelayFormatOpenAI, nil
 	case "/pg/images/generations":
 		return types.RelayFormatOpenAIImage, nil
+	case "/pg/images/edits":
+		return types.RelayFormatOpenAIImage, nil
 	default:
 		return "", fmt.Errorf("unsupported playground path: %s", path)
 	}

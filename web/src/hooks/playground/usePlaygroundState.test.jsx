@@ -54,6 +54,8 @@ mock.module('../../components/playground/configStorage', () => ({
   saveConfig: () => {},
   loadMessages: () => null,
   saveMessages: () => {},
+  sanitizePlaygroundConfig: (config = {}) => config,
+  sanitizePlaygroundInputsForStorage: (inputs = {}) => inputs,
 }));
 
 mock.module('../../components/playground/configStorage.js', () => ({
@@ -61,6 +63,8 @@ mock.module('../../components/playground/configStorage.js', () => ({
   saveConfig: () => {},
   loadMessages: () => null,
   saveMessages: () => {},
+  sanitizePlaygroundConfig: (config = {}) => config,
+  sanitizePlaygroundInputsForStorage: (inputs = {}) => inputs,
 }));
 
 mock.module('../../helpers', () => ({
@@ -157,6 +161,8 @@ mock.module(configStorageModulePath, () => ({
   saveConfig: () => {},
   loadMessages: () => null,
   saveMessages: () => {},
+  sanitizePlaygroundConfig: (config = {}) => config,
+  sanitizePlaygroundInputsForStorage: (inputs = {}) => inputs,
 }));
 
 mock.module(`file://${configStorageModulePath}`, () => ({
@@ -164,6 +170,8 @@ mock.module(`file://${configStorageModulePath}`, () => ({
   saveConfig: () => {},
   loadMessages: () => null,
   saveMessages: () => {},
+  sanitizePlaygroundConfig: (config = {}) => config,
+  sanitizePlaygroundInputsForStorage: (inputs = {}) => inputs,
 }));
 
 const helpersModulePath = path.resolve('src/helpers/index.js');

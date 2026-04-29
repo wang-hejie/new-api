@@ -4395,6 +4395,20 @@
     "默认折叠侧边栏": "Mặc định thu gọn thanh bên",
     "默认测试模型": "Mô hình kiểm tra mặc định",
     "默认用户消息": "Xin chào",
-    "默认补全倍率": "Tỷ lệ hoàn thành mặc định"
+    "默认补全倍率": "Tỷ lệ hoàn thành mặc định",
+    "请求方式": "Chế độ yêu cầu",
+    "文生图": "Văn bản thành ảnh",
+    "图生图": "Chỉnh sửa ảnh",
+    "参考图": "Ảnh tham chiếu",
+    "参考用途": "Cách dùng ảnh tham chiếu",
+    "主体(subject)": "Chủ thể",
+    "构图(composition)": "Bố cục",
+    "风格(style)": "Phong cách",
+    "图生图模式需要先上传参考图": "Vui lòng tải ảnh tham chiếu trước khi dùng chế độ chỉnh sửa ảnh",
+    "自定义请求体模式不支持图生图，请关闭自定义请求体或切换到文生图": "Chế độ body yêu cầu tùy chỉnh không hỗ trợ chỉnh sửa ảnh. Hãy tắt body tùy chỉnh hoặc chuyển sang văn bản thành ảnh.",
+    "图生图重新生成需要重新上传参考图": "Tạo lại trong chế độ chỉnh sửa ảnh cần tải lại ảnh tham chiếu",
+    "仅支持 PNG / JPEG / WebP，单文件不超过 10 MB": "Chỉ hỗ trợ PNG / JPEG / WebP, mỗi tệp tối đa 10 MB",
+    "上传参考图": "Tải ảnh tham chiếu",
+    "WebP/JPEG 上传更快": "WebP/JPEG tải lên nhanh hơn"
   }
 }

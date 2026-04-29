@@ -23,8 +23,8 @@ import (
 )
 
 type ModelRequest struct {
-	Model string `json:"model"`
-	Group string `json:"group,omitempty"`
+	Model string `json:"model" form:"model"`
+	Group string `json:"group,omitempty" form:"group"`
 }
 
 func Distribute() func(c *gin.Context) {

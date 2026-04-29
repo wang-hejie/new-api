@@ -22,12 +22,18 @@ import { Card, Select, Typography, Button, Switch } from '@douyinfe/semi-ui';
 import { Sparkles, Users, ToggleLeft, X, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { renderGroupOption, selectFilter } from '../../helpers';
-import { ENDPOINT_TYPES } from '../../constants/playground.constants';
+import {
+  ENDPOINT_TYPES,
+  IMAGE_REQUEST_MODES,
+} from '../../constants/playground.constants';
 import ParameterControl from './ParameterControl';
 import ImageUrlInput from './ImageUrlInput';
 import ImageParameterControl from './ImageParameterControl';
+import ImageRequestModeSwitch from './ImageRequestModeSwitch';
+import ImageReferenceUploader from './ImageReferenceUploader';
 import ConfigManager from './ConfigManager';
 import CustomRequestEditor from './CustomRequestEditor';
+import { normalizeImageRequestMode } from '../../hooks/playground/imageEditGuards';
 
 const SettingsPanel = ({
   inputs,
@@ -39,6 +45,7 @@ const SettingsPanel = ({
   customRequestMode,
   customRequestBody,
   endpointType,
+  imageRequestMode,
   onInputChange,
   onParameterToggle,
   onCloseSettings,
@@ -51,6 +58,20 @@ const SettingsPanel = ({
 }) => {
   const { t } = useTranslation();
   const isImageGeneration = endpointType === ENDPOINT_TYPES.IMAGE_GENERATION;
+  const supportsImageEdits = inputs.imageParameters?.supports_edits === true;
+  const normalizedImageRequestMode = normalizeImageRequestMode({
+    imageRequestMode,
+    supportsEdits: supportsImageEdits,
+  });
+  const isImageEditMode =
+    normalizedImageRequestMode === IMAGE_REQUEST_MODES.EDIT;
+  const imagePanelInputs = React.useMemo(
+    () => ({
+      ...inputs,
+      imageRequestMode: normalizedImageRequestMode,
+    }),
+    [inputs, normalizedImageRequestMode],
+  );
 
   const currentConfig = {
     inputs,
@@ -181,11 +202,37 @@ const SettingsPanel = ({
         </div>
 
         {isImageGeneration ? (
-          <ImageParameterControl
-            inputs={inputs}
-            onInputChange={onInputChange}
-            disabled={customRequestMode}
-          />
+          <>
+            {supportsImageEdits && (
+              <ImageRequestModeSwitch
+                imageRequestMode={imageRequestMode}
+                onInputChange={onInputChange}
+                disabled={customRequestMode}
+              />
+            )}
+            {customRequestMode &&
+              isImageEditMode && (
+                <Typography.Text className='text-xs text-orange-600'>
+                  {t(
+                    '自定义请求体模式不支持图生图，请关闭自定义请求体或切换到文生图',
+                  )}
+                </Typography.Text>
+              )}
+            {isImageEditMode && (
+              <ImageReferenceUploader
+                referenceFiles={imagePanelInputs.image_reference_files}
+                onReferenceFilesChange={(files) =>
+                  onInputChange('image_reference_files', files)
+                }
+                disabled={customRequestMode}
+              />
+            )}
+            <ImageParameterControl
+              inputs={imagePanelInputs}
+              onInputChange={onInputChange}
+              disabled={customRequestMode}
+            />
+          </>
         ) : (
           <>
             {/* 图片URL输入 */}

@@ -37,6 +37,8 @@ export const usePlayground = () => {
       },
       imageUrls: [],
       imageEnabled: false,
+      sendDisabled: false,
+      sendDisabledReason: '',
     };
   }
   return context;

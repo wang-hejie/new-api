@@ -19,13 +19,22 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useMemo } from 'react';
 import { InputNumber, Select, Tooltip, Typography } from '@douyinfe/semi-ui';
-import { Image, Layers, SlidersHorizontal, FileOutput } from 'lucide-react';
+import {
+  Image,
+  Layers,
+  SlidersHorizontal,
+  FileOutput,
+  Sparkles,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   getImageQualityOptionsForModel,
   getImageSizeOptionsForModel,
-  isGptImageModel,
 } from '../../helpers';
+import {
+  IMAGE_REFERENCE_USAGE,
+  IMAGE_REQUEST_MODES,
+} from '../../constants/playground.constants';
 
 const labelByValue = {
   auto: '自动',
@@ -63,7 +72,6 @@ const ImageParameterControl = ({ inputs, onInputChange, disabled = false }) => {
       ),
     [inputs.model, imageParameters, t],
   );
-  const isGptImage = isGptImageModel(inputs.model);
   const maxImageCount = imageParameters?.n_max || undefined;
   const isCountLocked = maxImageCount === 1;
 
@@ -133,7 +141,41 @@ const ImageParameterControl = ({ inputs, onInputChange, disabled = false }) => {
           )}
         </div>
 
-        {!isGptImage && imageParameters?.response_format !== false && (
+        {inputs.imageRequestMode === IMAGE_REQUEST_MODES.EDIT && (
+          <div>
+            <div className='flex items-center gap-2 mb-2'>
+              <Sparkles size={16} className='text-gray-500' />
+              <Typography.Text strong className='text-sm'>
+                {t('参考用途')}
+              </Typography.Text>
+            </div>
+            <Select
+              value={inputs.prompt_reference_usage}
+              optionList={[
+                {
+                  value: IMAGE_REFERENCE_USAGE.SUBJECT,
+                  label: t('主体(subject)'),
+                },
+                {
+                  value: IMAGE_REFERENCE_USAGE.COMPOSITION,
+                  label: t('构图(composition)'),
+                },
+                {
+                  value: IMAGE_REFERENCE_USAGE.STYLE,
+                  label: t('风格(style)'),
+                },
+              ]}
+              onChange={(value) =>
+                onInputChange('prompt_reference_usage', value)
+              }
+              style={{ width: '100%' }}
+              className='!rounded-lg'
+              disabled={disabled}
+            />
+          </div>
+        )}
+
+        {imageParameters?.response_format !== false && (
           <div>
             <div className='flex items-center gap-2 mb-2'>
               <FileOutput size={16} className='text-gray-500' />
