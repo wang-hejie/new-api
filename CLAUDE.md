@@ -148,3 +148,7 @@ For request structs that are parsed from client JSON and then re-marshaled to up
 ### Rule 7: Billing Expression System — Read `pkg/billingexpr/expr.md`
 
 When working on tiered/dynamic billing (expression-based pricing), you MUST read `pkg/billingexpr/expr.md` first. It documents the design philosophy, expression language (variables, functions, examples), full system architecture (editor → storage → pre-consume → settlement → log display), token normalization rules (`p`/`c` auto-exclusion), quota conversion, and expression versioning. All code changes to the billing expression system must follow the patterns described in that document.
+
+### Rule 8: Playwright E2E — Disable Local Web Rate Limit
+
+本地浏览器/页面级 E2E 必须让 Docker Compose 服务关闭 Web 全局限流：`GLOBAL_WEB_RATE_LIMIT_ENABLE=false`。如果测试包含大量初始化、登录或设置请求，同时提高 `GLOBAL_API_RATE_LIMIT` / `CRITICAL_RATE_LIMIT`；这些变量必须进入容器环境，不能只写在 `docker compose up` 命令前，除非 compose 文件显式转发。

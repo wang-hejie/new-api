@@ -1,4 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { loginPageByApi, type E2EUser } from './fixtures';
 
 export const DEFAULT_PARAMETER_ENABLED = {
@@ -9,6 +11,40 @@ export const DEFAULT_PARAMETER_ENABLED = {
   presence_penalty: true,
   seed: false,
 };
+
+const TEST_ASSET_DIR = join(
+  process.cwd(),
+  '..',
+  'scripts/e2e/gpt-image-2/test-assets',
+);
+const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+  'base64',
+);
+
+export function imageTestAsset(name: string) {
+  ensureImageTestAssets();
+  return join(TEST_ASSET_DIR, name);
+}
+
+function ensureImageTestAssets() {
+  mkdirSync(TEST_ASSET_DIR, { recursive: true });
+  writeAssetIfMissing('apple_red.png', TINY_PNG);
+  writeAssetIfMissing('apple_red.jpg', TINY_PNG);
+  writeAssetIfMissing('apple_red.webp', TINY_PNG);
+  writeAssetIfMissing('bad_mime.txt', Buffer.from('not an image'));
+  writeAssetIfMissing(
+    'too_large.png',
+    Buffer.alloc(10 * 1024 * 1024 + 1, 0),
+  );
+}
+
+function writeAssetIfMissing(name: string, content: Buffer) {
+  const filePath = join(TEST_ASSET_DIR, name);
+  if (!existsSync(filePath)) {
+    writeFileSync(filePath, content);
+  }
+}
 
 export type PlaygroundConfigOptions = {
   model?: string;

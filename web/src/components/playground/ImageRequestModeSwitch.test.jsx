@@ -29,6 +29,7 @@ mock.module('react-i18next', () => ({
 mock.module('@douyinfe/semi-ui', () => ({
   Button: ({ children, disabled, icon }) =>
     React.createElement('button', { disabled }, icon, children),
+  Empty: ({ title }) => React.createElement('div', null, title),
   InputNumber: ({ disabled, max, value }) =>
     React.createElement('input', {
       disabled,
@@ -39,6 +40,14 @@ mock.module('@douyinfe/semi-ui', () => ({
   Modal: {
     confirm: () => {},
   },
+  Nav: Object.assign(
+    ({ children }) => React.createElement('nav', null, children),
+    {
+      Sub: ({ children, text }) =>
+        React.createElement('section', null, text, children),
+      Item: ({ text }) => React.createElement('button', null, text),
+    },
+  ),
   Radio: ({ children, extra, value }) =>
     React.createElement(
       'label',
@@ -63,6 +72,17 @@ mock.module('@douyinfe/semi-ui', () => ({
           option.label,
         ),
       ),
+    ),
+  Skeleton: Object.assign(() => React.createElement('div', null, 'skeleton'), {
+    Paragraph: ({ rows }) =>
+      React.createElement('div', { 'data-skeleton-rows': rows }),
+  }),
+  SideSheet: ({ children, visible, title }) =>
+    React.createElement(
+      'aside',
+      { 'data-visible': visible },
+      title,
+      children,
     ),
   Toast: {
     success: () => {},

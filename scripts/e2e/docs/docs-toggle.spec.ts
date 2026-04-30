@@ -55,7 +55,7 @@ test("HeaderNavModules.docs hides only the header link, not the docs route", asy
   await page.goto("/docs");
   await page.waitForURL("**/docs/gpt-image-2");
   await expect(
-    page.getByRole("heading", { name: "gpt-image-2 使用指南" }).first(),
+    page.getByRole("heading", { name: "gpt-image-2 概览" }).first(),
   ).toBeVisible();
 
   await setOption(

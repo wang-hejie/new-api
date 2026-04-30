@@ -102,15 +102,8 @@ async function prepareRoutingState(docsLink: string) {
 }
 
 async function gotoHome(page: Page) {
-  const status = page.waitForResponse((res) =>
-    res.url().endsWith("/api/status"),
-  );
-  const homeContent = page.waitForResponse((res) =>
-    res.url().includes("/api/home_page_content"),
-  );
-  await page.goto("/");
-  await status;
-  await homeContent;
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(await headerDocsLink(page)).toBeVisible();
 }
 
 async function assertInternalUrl(page: Page, expectedPath: RegExp) {

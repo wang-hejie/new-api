@@ -30,7 +30,7 @@ let docsListResponse = {
   data: [
     {
       slug: 'gpt-image-2',
-      title: 'gpt-image-2 使用指南',
+      title: 'gpt-image-2 概览',
       category: '模型指南',
       order: 10,
     },
@@ -68,6 +68,8 @@ const helpersMock = {
   showError: (message) => {
     errors.push(message);
   },
+  copy: async () => true,
+  rehypeSplitWordsIntoSpans: () => (tree) => tree,
 };
 
 mock.module('react-i18next', () => ({
@@ -80,17 +82,9 @@ mock.module('react-router-dom', () => ({
 }));
 
 mock.module('@douyinfe/semi-ui', () => ({
-  Button: ({ children, onClick, ...props }) =>
-    React.createElement('button', { onClick, ...props }, children),
+  Button: ({ children, icon, onClick, ...props }) =>
+    React.createElement('button', { onClick, ...props }, icon, children),
   Empty: ({ title }) => React.createElement('div', null, title),
-  Nav: Object.assign(
-    ({ children }) => React.createElement('nav', null, children),
-    {
-      Sub: ({ children, text }) =>
-        React.createElement('section', null, text, children),
-      Item: ({ text }) => React.createElement('button', null, text),
-    },
-  ),
   Skeleton: Object.assign(() => React.createElement('div', null, 'skeleton'), {
     Paragraph: ({ rows }) =>
       React.createElement('div', { 'data-skeleton-rows': rows }),
@@ -102,13 +96,17 @@ mock.module('@douyinfe/semi-ui', () => ({
       title,
       children,
   ),
-  Typography: {
-    Text: ({ children }) => React.createElement('span', null, children),
-    Title: ({ children }) => React.createElement('h2', null, children),
+  Toast: {
+    success: () => {},
+    error: () => {},
   },
+  Tooltip: ({ children }) => React.createElement(React.Fragment, null, children),
 }));
 
 mock.module('@douyinfe/semi-icons', () => ({
+  IconChevronLeft: () => React.createElement('i', null),
+  IconChevronRight: () => React.createElement('i', null),
+  IconCopy: () => React.createElement('i', null),
   IconMenu: () => React.createElement('i', null),
 }));
 
@@ -121,16 +119,39 @@ mock.module('../../hooks/common/useIsMobile', () => ({
   useIsMobile: () => mobile,
 }));
 
-mock.module('../../components/common/markdown/MarkdownRenderer', () => ({
-  default: ({ content }) => React.createElement('pre', null, content),
+mock.module('mermaid', () => ({
+  default: {
+    initialize: () => {},
+    run: async () => {},
+  },
 }));
 
 mock.module('../../helpers', () => helpersMock);
 mock.module('../../helpers/index.js', () => helpersMock);
+mock.module('../../helpers/render.jsx', () => ({
+  rehypeSplitWordsIntoSpans: helpersMock.rehypeSplitWordsIntoSpans,
+}));
+mock.module('../../helpers/utils.jsx', () => ({
+  copy: helpersMock.copy,
+}));
 
 const helpersModulePath = path.resolve('src/helpers/index.js');
 mock.module(helpersModulePath, () => helpersMock);
 mock.module(`file://${helpersModulePath}`, () => helpersMock);
+const helpersRenderModulePath = path.resolve('src/helpers/render.jsx');
+mock.module(helpersRenderModulePath, () => ({
+  rehypeSplitWordsIntoSpans: helpersMock.rehypeSplitWordsIntoSpans,
+}));
+mock.module(`file://${helpersRenderModulePath}`, () => ({
+  rehypeSplitWordsIntoSpans: helpersMock.rehypeSplitWordsIntoSpans,
+}));
+const helpersUtilsModulePath = path.resolve('src/helpers/utils.jsx');
+mock.module(helpersUtilsModulePath, () => ({
+  copy: helpersMock.copy,
+}));
+mock.module(`file://${helpersUtilsModulePath}`, () => ({
+  copy: helpersMock.copy,
+}));
 
 const flushEffects = async () => {
   await act(async () => {
@@ -151,7 +172,7 @@ describe('DocsLayout', () => {
       data: [
         {
           slug: 'gpt-image-2',
-          title: 'gpt-image-2 使用指南',
+          title: 'gpt-image-2 概览',
           category: '模型指南',
           order: 10,
         },
@@ -190,7 +211,7 @@ describe('DocsLayout', () => {
     ]);
     expect(html).toContain('文档中心');
     expect(html).toContain('模型指南');
-    expect(html).toContain('gpt-image-2 使用指南');
+    expect(html).toContain('gpt-image-2 概览');
     expect(html).toContain('通用');
     expect(html).toContain('Common Doc');
   });
@@ -208,8 +229,81 @@ describe('DocsLayout', () => {
     const html = JSON.stringify(renderer.toJSON());
     expect(apiCalls).toEqual(['/api/docs/list', '/api/docs/content']);
     expect(html).toContain('Common Doc');
-    expect(html).toContain('# Common Doc');
+    expect(html).toContain('docs-markdown');
+    expect(html).toContain('docs-common-doc-common-doc');
     expect(navigateCalls).toEqual([]);
+  });
+
+  test('renders right-side request and response examples from docs meta', async () => {
+    const { default: DocsLayout } = await import('./DocsLayout');
+    params = { slug: 'common-doc' };
+    contentResponse = {
+      success: true,
+      data: {
+        slug: 'common-doc',
+        title: 'Common Doc',
+        category: '通用',
+        content: [
+          '# Common Doc',
+          '',
+          '## POST `/v1/images/generations`',
+          '',
+          '```http request title="HTTP" method=POST path="/v1/images/generations"',
+          'POST /v1/images/generations',
+          '```',
+          '',
+          '```json response status=200 title="成功响应"',
+          '{ "created": 1, "data": [] }',
+          '```',
+        ].join('\n'),
+      },
+    };
+
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<DocsLayout />);
+    });
+    await flushEffects();
+
+    const html = JSON.stringify(renderer.toJSON());
+    expect(html).toContain('docs-aside');
+    expect(html).toContain('请求示例');
+    expect(html).toContain('响应示例');
+    expect(html).toContain('POST /v1/images/generations');
+    expect(html).toContain('data-kind":"response');
+    expect(html).toContain('200');
+    expect(html).toContain('created');
+  });
+
+  test('mobile top bar opens the docs drawer', async () => {
+    const { default: DocsLayout } = await import('./DocsLayout');
+    params = { slug: 'common-doc' };
+    mobile = true;
+
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<DocsLayout />);
+    });
+    await flushEffects();
+
+    expect(JSON.stringify(renderer.toJSON())).toContain('docs-mobile-topbar');
+    const getDrawer = () =>
+      renderer.root
+        .findAllByType('aside')
+        .find((aside) =>
+          Object.prototype.hasOwnProperty.call(aside.props, 'data-visible'),
+        );
+
+    expect(getDrawer().props['data-visible']).toBe(false);
+
+    const menuButton = renderer.root
+      .findAllByType('button')
+      .find((button) => button.props['aria-label'] === '返回文档列表');
+    await act(async () => {
+      menuButton.props.onClick();
+    });
+
+    expect(getDrawer().props['data-visible']).toBe(true);
   });
 
   test('renders empty state and reports the API message when list loading fails', async () => {

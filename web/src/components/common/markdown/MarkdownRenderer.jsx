@@ -30,11 +30,16 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import mermaid from 'mermaid';
 import React from 'react';
 import { useDebouncedCallback } from 'use-debounce';
+import { visit } from 'unist-util-visit';
 import clsx from 'clsx';
 import { Button, Tooltip, Toast } from '@douyinfe/semi-ui';
-import { copy, rehypeSplitWordsIntoSpans } from '../../../helpers';
+import { rehypeSplitWordsIntoSpans } from '../../../helpers/render.jsx';
+import { copy } from '../../../helpers/utils.jsx';
 import { IconCopy } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
+import { createUniqueDocsHeadingId, slugifyDocsHeading } from './docsMeta';
+
+export { createUniqueDocsHeadingId, slugifyDocsHeading };
 
 mermaid.initialize({
   startOnLoad: false,
@@ -379,13 +384,179 @@ function tryWrapHtmlCode(text) {
     );
 }
 
+export function getMarkdownNodeText(node) {
+  if (!node) return '';
+  if (typeof node.value === 'string') return node.value;
+  if (!Array.isArray(node.children)) return '';
+  return node.children.map((child) => getMarkdownNodeText(child)).join('');
+}
+
+export function parseDocsFenceMeta(meta = '') {
+  const result = {};
+  const source = String(meta || '').trim();
+  if (!source) return result;
+
+  const tokenPattern = /([^\s="']+)(?:=(?:"([^"]*)"|'([^']*)'|([^\s]+)))?/g;
+  let match;
+  while ((match = tokenPattern.exec(source)) !== null) {
+    const key = match[1];
+    if (!key) continue;
+    const value = match[2] ?? match[3] ?? match[4] ?? true;
+    result[key] = value;
+  }
+  return result;
+}
+
+export function createDocsMetaPlugin({ metaRef, headingIdPrefix = '' }) {
+  return function docsMetaPlugin() {
+    return function transformer(tree) {
+      const usedIds = new Map();
+      const headings = [];
+      const codeBlocks = [];
+      const headingStack = [];
+      let codeIndex = 0;
+
+      visit(tree, (node) => {
+        if (node.type === 'heading') {
+          const text = getMarkdownNodeText(node);
+          const id = createUniqueDocsHeadingId(text, usedIds, headingIdPrefix);
+          node.data = node.data || {};
+          node.data.hProperties = {
+            ...(node.data.hProperties || {}),
+            id,
+          };
+
+          const heading = {
+            depth: node.depth,
+            text,
+            id,
+          };
+          headings.push(heading);
+
+          while (
+            headingStack.length &&
+            headingStack[headingStack.length - 1].depth >= node.depth
+          ) {
+            headingStack.pop();
+          }
+          headingStack.push(heading);
+          return;
+        }
+
+        if (node.type === 'code') {
+          codeBlocks.push({
+            lang: node.lang || '',
+            meta: node.meta || '',
+            metaMap: parseDocsFenceMeta(node.meta || ''),
+            value: node.value || '',
+            index: codeIndex,
+            headingPath: headingStack
+              .filter((heading) => heading.depth <= 3)
+              .map((heading) => ({
+                depth: heading.depth,
+                text: heading.text,
+                id: heading.id,
+              })),
+          });
+          codeIndex += 1;
+        }
+      });
+
+      metaRef.current = { headings, codeBlocks };
+    };
+  };
+}
+
+function DocsPreCode(props) {
+  const { node, children, ...rest } = props;
+  return (
+    <pre {...rest} className={clsx(rest.className, 'docs-code-block')}>
+      {children}
+    </pre>
+  );
+}
+
+function DocsCode(props) {
+  const { node, children, ...rest } = props;
+  return (
+    <code {...rest} className={clsx(rest.className, 'docs-code')}>
+      {children}
+    </code>
+  );
+}
+
+function createDocsMarkdownComponents() {
+  const makeHeading = (Tag) =>
+    function DocsHeading(props) {
+      const { node, ...rest } = props;
+      return <Tag {...rest} className={clsx(rest.className)} />;
+    };
+
+  return {
+    pre: DocsPreCode,
+    code: DocsCode,
+    p: (props) => <p {...props} dir='auto' />,
+    a: (props) => {
+      const { node, ...rest } = props;
+      const href = rest.href || '';
+      const isInternal = /^\/#/i.test(href) || href.startsWith('#');
+      const target = isInternal ? '_self' : (rest.target ?? '_blank');
+      return <a {...rest} target={target} />;
+    },
+    h1: makeHeading('h1'),
+    h2: makeHeading('h2'),
+    h3: makeHeading('h3'),
+    h4: makeHeading('h4'),
+    h5: makeHeading('h5'),
+    h6: makeHeading('h6'),
+    table: (props) => {
+      const { node, ...rest } = props;
+      return (
+      <div className='docs-table-wrap'>
+        <table {...rest} />
+      </div>
+      );
+    },
+    th: (props) => {
+      const { node, ...rest } = props;
+      return <th {...rest} />;
+    },
+    td: (props) => {
+      const { node, ...rest } = props;
+      return <td {...rest} />;
+    },
+    blockquote: (props) => {
+      const { node, ...rest } = props;
+      return <blockquote {...rest} />;
+    },
+    ul: (props) => {
+      const { node, ...rest } = props;
+      return <ul {...rest} />;
+    },
+    ol: (props) => {
+      const { node, ...rest } = props;
+      return <ol {...rest} />;
+    },
+    li: (props) => {
+      const { node, ...rest } = props;
+      return <li {...rest} />;
+    },
+  };
+}
+
 function _MarkdownContent(props) {
   const {
     content,
     className,
     animated = false,
     previousContentLength = 0,
+    variant,
+    headingIdPrefix,
+    onDocsMetaExtract,
   } = props;
+  const docsMetaRef = useRef({ headings: [], codeBlocks: [] });
+  const onDocsMetaExtractRef = useRef(onDocsMetaExtract);
+  onDocsMetaExtractRef.current = onDocsMetaExtract;
 
   const escapedContent = useMemo(() => {
     return tryWrapHtmlCode(escapeBrackets(content));
@@ -393,6 +564,14 @@ function _MarkdownContent(props) {
 
   // 判断是否为用户消息
   const isUserMessage = className && className.includes('user-message');
+
+  const remarkPluginsBase = useMemo(() => {
+    const base = [RemarkMath, RemarkGfm, RemarkBreaks];
+    if (variant === 'docs') {
+      base.push(createDocsMetaPlugin({ metaRef: docsMetaRef, headingIdPrefix }));
+    }
+    return base;
+  }, [headingIdPrefix, variant]);
 
   const rehypePluginsBase = useMemo(() => {
     const base = [
@@ -411,9 +590,35 @@ function _MarkdownContent(props) {
     return base;
   }, [animated, previousContentLength]);
 
+  const docsComponents = useMemo(() => createDocsMarkdownComponents(), []);
+
+  useEffect(() => {
+    if (
+      variant !== 'docs' ||
+      typeof onDocsMetaExtractRef.current !== 'function'
+    ) {
+      return;
+    }
+    onDocsMetaExtractRef.current(
+      docsMetaRef.current || { headings: [], codeBlocks: [] },
+    );
+  }, [escapedContent, headingIdPrefix, variant]);
+
+  if (variant === 'docs') {
+    return (
+      <ReactMarkdown
+        remarkPlugins={remarkPluginsBase}
+        rehypePlugins={rehypePluginsBase}
+        components={docsComponents}
+      >
+        {escapedContent}
+      </ReactMarkdown>
+    );
+  }
+
   return (
     <ReactMarkdown
-      remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
+      remarkPlugins={remarkPluginsBase}
       rehypePlugins={rehypePluginsBase}
       components={{
         pre: PreCode,
@@ -646,19 +851,31 @@ export function MarkdownRenderer(props) {
     style,
     animated = false,
     previousContentLength = 0,
+    variant = 'default',
+    headingIdPrefix = '',
+    onDocsMetaExtract,
     ...otherProps
   } = props;
 
+  const isDocsVariant = variant === 'docs';
+
   return (
     <div
-      className={clsx('markdown-body', className)}
-      style={{
-        fontSize: `${fontSize}px`,
-        fontFamily: fontFamily,
-        lineHeight: '1.6',
-        color: 'var(--semi-color-text-0)',
-        ...style,
-      }}
+      className={clsx(
+        isDocsVariant ? 'docs-markdown markdown-body' : 'markdown-body',
+        className,
+      )}
+      style={
+        isDocsVariant
+          ? style
+          : {
+              fontSize: `${fontSize}px`,
+              fontFamily: fontFamily,
+              lineHeight: '1.6',
+              color: 'var(--semi-color-text-0)',
+              ...style,
+            }
+      }
       dir='auto'
       {...otherProps}
     >
@@ -690,6 +907,9 @@ export function MarkdownRenderer(props) {
           className={className}
           animated={animated}
           previousContentLength={previousContentLength}
+          variant={variant}
+          headingIdPrefix={headingIdPrefix}
+          onDocsMetaExtract={onDocsMetaExtract}
         />
       )}
     </div>

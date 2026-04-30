@@ -354,6 +354,8 @@ func BatchInsertChannels(channels []Channel) error {
 	if len(channels) == 0 {
 		return nil
 	}
+	defer InvalidatePricingCache()
+
 	tx := DB.Begin()
 	if tx.Error != nil {
 		return tx.Error
@@ -383,6 +385,8 @@ func BatchDeleteChannels(ids []int) error {
 	if len(ids) == 0 {
 		return nil
 	}
+	defer InvalidatePricingCache()
+
 	// 使用事务 分批删除channel表和abilities表
 	tx := DB.Begin()
 	if tx.Error != nil {
@@ -441,6 +445,8 @@ func (channel *Channel) GetStatusCodeMapping() string {
 }
 
 func (channel *Channel) Insert() error {
+	defer InvalidatePricingCache()
+
 	var err error
 	err = DB.Create(channel).Error
 	if err != nil {
@@ -451,6 +457,8 @@ func (channel *Channel) Insert() error {
 }
 
 func (channel *Channel) Update() error {
+	defer InvalidatePricingCache()
+
 	// If this is a multi-key channel, recalculate MultiKeySize based on the current key list to avoid inconsistency after editing keys
 	if channel.ChannelInfo.IsMultiKey {
 		var keyStr string
@@ -520,6 +528,8 @@ func (channel *Channel) UpdateBalance(balance float64) {
 }
 
 func (channel *Channel) Delete() error {
+	defer InvalidatePricingCache()
+
 	var err error
 	err = DB.Delete(channel).Error
 	if err != nil {
@@ -675,6 +685,8 @@ func UpdateChannelStatus(channelId int, usingKey string, status int, reason stri
 }
 
 func EnableChannelByTag(tag string) error {
+	defer InvalidatePricingCache()
+
 	err := DB.Model(&Channel{}).Where("tag = ?", tag).Update("status", common.ChannelStatusEnabled).Error
 	if err != nil {
 		return err
@@ -684,6 +696,8 @@ func EnableChannelByTag(tag string) error {
 }
 
 func DisableChannelByTag(tag string) error {
+	defer InvalidatePricingCache()
+
 	err := DB.Model(&Channel{}).Where("tag = ?", tag).Update("status", common.ChannelStatusManuallyDisabled).Error
 	if err != nil {
 		return err
@@ -693,6 +707,8 @@ func DisableChannelByTag(tag string) error {
 }
 
 func EditChannelByTag(tag string, newTag *string, modelMapping *string, models *string, group *string, priority *int64, weight *uint, paramOverride *string, headerOverride *string) error {
+	defer InvalidatePricingCache()
+
 	updateData := Channel{}
 	shouldReCreateAbilities := false
 	updatedTag := tag
@@ -920,6 +936,8 @@ func GetChannelsByIds(ids []int) ([]*Channel, error) {
 }
 
 func BatchSetChannelTag(ids []int, tag *string) error {
+	defer InvalidatePricingCache()
+
 	// 开启事务
 	tx := DB.Begin()
 	if tx.Error != nil {

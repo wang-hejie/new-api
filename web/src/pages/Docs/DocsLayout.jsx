@@ -17,17 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Button,
-  Empty,
-  Nav,
-  Skeleton,
-  SideSheet,
-  Typography,
-} from '@douyinfe/semi-ui';
-import { IconMenu } from '@douyinfe/semi-icons';
+import { Empty, Skeleton, SideSheet } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import {
   IllustrationConstruction,
@@ -36,18 +28,12 @@ import {
 import { API, showError } from '../../helpers';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import DocViewer from './DocViewer';
-
-const { Title } = Typography;
-
-const groupDocsByCategory = (docs) =>
-  docs.reduce((groups, doc) => {
-    const category = doc.category || '通用';
-    if (!groups[category]) groups[category] = [];
-    groups[category].push(doc);
-    return groups;
-  }, {});
-
-const docsViewportStyle = { height: 'calc(100dvh - 64px)' };
+import DocsSidebar from './components/DocsSidebar';
+import DocsAside from './components/DocsAside';
+import DocsMobileTopBar from './components/DocsMobileTopBar';
+import DocsPagination from './components/DocsPagination';
+import { useDocsNeighbors } from './hooks/useDocsNeighbors';
+import { selectDocsCodeExamples } from './utils/selectDocsCodeExamples';
 
 const DocsLayout = () => {
   const { t } = useTranslation();
@@ -57,10 +43,18 @@ const DocsLayout = () => {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [docMeta, setDocMeta] = useState({
+    headings: [],
+    codeBlocks: [],
+  });
+  const [currentDoc, setCurrentDoc] = useState(null);
 
-  const groupedDocs = useMemo(() => groupDocsByCategory(docs), [docs]);
-  const categories = useMemo(() => Object.keys(groupedDocs), [groupedDocs]);
   const firstDoc = docs[0];
+  const neighbors = useDocsNeighbors(docs, slug);
+  const codeExamples = useMemo(
+    () => selectDocsCodeExamples(docMeta.codeBlocks || []),
+    [docMeta.codeBlocks],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -99,47 +93,50 @@ const DocsLayout = () => {
     }
   }, [firstDoc?.slug, loading, navigate, slug]);
 
-  const handleSelectDoc = (docSlug) => {
+  const handleSelectDoc = useCallback((docSlug) => {
     if (!docSlug) return;
     navigate(`/docs/${docSlug}`);
     setDrawerVisible(false);
-  };
+  }, [navigate]);
 
-  const renderNav = () => (
-    <Nav
-      selectedKeys={slug ? [slug] : []}
-      defaultOpenKeys={categories}
-      onSelect={({ itemKey }) => handleSelectDoc(itemKey)}
-      style={{ border: 'none', background: 'transparent' }}
-    >
-      {categories.map((category) => (
-        <Nav.Sub
-          key={category}
-          itemKey={category}
-          text={<span className='font-semibold'>{category}</span>}
-        >
-          {groupedDocs[category].map((doc) => (
-            <Nav.Item
-              key={doc.slug}
-              itemKey={doc.slug}
-              text={<span className='truncate'>{doc.title}</span>}
-              onClick={() => handleSelectDoc(doc.slug)}
-            />
-          ))}
-        </Nav.Sub>
-      ))}
-    </Nav>
+  const handleDocMeta = useCallback((meta) => {
+    setDocMeta({
+      headings: meta?.headings || [],
+      codeBlocks: meta?.codeBlocks || [],
+    });
+  }, []);
+
+  const handleDocLoaded = useCallback((doc) => {
+    setCurrentDoc(doc);
+  }, []);
+
+  useEffect(() => {
+    setDocMeta({ headings: [], codeBlocks: [] });
+    setCurrentDoc(null);
+  }, [slug]);
+
+  const sidebar = (
+    <DocsSidebar
+      docs={docs}
+      activeSlug={slug}
+      onSelectDoc={handleSelectDoc}
+    />
+  );
+
+  const pagination = (
+    <DocsPagination
+      previous={neighbors.previous}
+      next={neighbors.next}
+      onSelectDoc={handleSelectDoc}
+    />
   );
 
   if (loading) {
     return (
-      <div
-        className='mt-16 bg-semi-color-bg-0 p-4 md:p-6'
-        style={docsViewportStyle}
-      >
-        <div className='flex h-full gap-6'>
+      <div className='docs-shell docs-loading-shell'>
+        <div className='docs-loading-grid'>
           {!isMobile && (
-            <aside className='w-64 shrink-0'>
+            <aside>
               <Skeleton
                 placeholder={<Skeleton.Paragraph rows={8} />}
                 loading
@@ -147,7 +144,7 @@ const DocsLayout = () => {
               />
             </aside>
           )}
-          <main className='min-w-0 flex-1'>
+          <main>
             <Skeleton
               placeholder={<Skeleton.Paragraph rows={12} />}
               loading
@@ -161,10 +158,7 @@ const DocsLayout = () => {
 
   if (!docs.length) {
     return (
-      <div
-        className='mt-16 flex items-center justify-center bg-semi-color-bg-0 p-6'
-        style={docsViewportStyle}
-      >
+      <div className='docs-shell docs-empty-shell'>
         <Empty
           title={t('暂无文档')}
           image={
@@ -179,32 +173,23 @@ const DocsLayout = () => {
   }
 
   return (
-    <div className='mt-16 bg-semi-color-bg-0' style={docsViewportStyle}>
-      <div className='flex h-full min-h-0'>
-        {!isMobile && (
-          <aside className='h-full w-72 shrink-0 overflow-y-auto border-r border-semi-color-border bg-semi-color-bg-1 px-3 py-4'>
-            <Title heading={5} className='px-3 pb-3'>
-              {t('文档中心')}
-            </Title>
-            {renderNav()}
-          </aside>
-        )}
+    <div className='docs-shell'>
+      <div className='docs-layout-grid'>
+        {sidebar}
 
-        <main className='min-w-0 flex-1 overflow-y-auto'>
+        <main className='docs-main-scroll'>
           {isMobile && (
-            <div className='sticky top-0 z-10 flex items-center justify-between border-b border-semi-color-border bg-semi-color-bg-0 px-4 py-3'>
-              <Title heading={5}>{t('文档中心')}</Title>
-              <Button
-                icon={<IconMenu />}
-                onClick={() => setDrawerVisible(true)}
-                aria-label={t('返回文档列表')}
-              />
-            </div>
+            <DocsMobileTopBar onOpenMenu={() => setDrawerVisible(true)} />
           )}
           {slug ? (
-            <DocViewer slug={slug} />
+            <DocViewer
+              slug={slug}
+              onMeta={handleDocMeta}
+              onDocLoaded={handleDocLoaded}
+              footer={pagination}
+            />
           ) : (
-            <div className='flex min-h-full items-center justify-center p-6'>
+            <div className='docs-main-inner'>
               <Empty
                 title={t('请从左侧选择一篇文档查看')}
                 image={
@@ -221,6 +206,8 @@ const DocsLayout = () => {
             </div>
           )}
         </main>
+
+        <DocsAside examples={codeExamples} />
       </div>
 
       <SideSheet
@@ -230,7 +217,14 @@ const DocsLayout = () => {
         placement='left'
         width={300}
       >
-        {renderNav()}
+        <div className='docs-shell docs-drawer-shell'>
+          <DocsSidebar
+            docs={docs}
+            activeSlug={slug}
+            onSelectDoc={handleSelectDoc}
+            title={currentDoc?.title || t('文档中心')}
+          />
+        </div>
       </SideSheet>
     </div>
   );

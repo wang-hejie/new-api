@@ -1,7 +1,6 @@
 package model
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -83,7 +82,15 @@ func InvalidatePricingCache() {
 
 	pricingMap = nil
 	vendorsList = nil
+	supportedEndpointMap = nil
 	lastGetPricingTime = time.Time{}
+	modelSupportEndpointsLock.Lock()
+	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
+	modelSupportEndpointsLock.Unlock()
+	modelEnableGroupsLock.Lock()
+	modelEnableGroups = make(map[string][]string)
+	modelQuotaTypeMap = make(map[string]int)
+	modelEnableGroupsLock.Unlock()
 }
 
 // GetVendors 返回当前定价接口使用到的供应商信息
@@ -99,6 +106,7 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 	if model == "" {
 		return make([]constant.EndpointType, 0)
 	}
+	GetPricing()
 	modelSupportEndpointsLock.RLock()
 	defer modelSupportEndpointsLock.RUnlock()
 	if endpoints, ok := modelSupportEndpointTypes[model]; ok {
@@ -220,7 +228,7 @@ func updatePricing() {
 			continue
 		}
 		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
+		if err := common.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
 			endpoints := make([]string, 0, len(raw))
 			for k, v := range raw {
 				switch v.(type) {
@@ -264,7 +272,7 @@ func updatePricing() {
 			continue
 		}
 		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
+		if err := common.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
 			for k, v := range raw {
 				switch val := v.(type) {
 				case string:
@@ -360,5 +368,6 @@ func updatePricing() {
 
 // GetSupportedEndpointMap 返回全局端点到路径的映射
 func GetSupportedEndpointMap() map[string]common.EndpointInfo {
+	GetPricing()
 	return supportedEndpointMap
 }

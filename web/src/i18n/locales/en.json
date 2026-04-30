@@ -3992,6 +3992,12 @@
     "暂无文档": "No documents available",
     "请从左侧选择一篇文档查看": "Select a document from the left to view",
     "返回文档列表": "Back to document list",
-    "留空使用内置文档；外链如 https://docs.newapi.pro": "Leave blank to use built-in docs; external link such as https://docs.newapi.pro"
+    "留空使用内置文档；外链如 https://docs.newapi.pro": "Leave blank to use built-in docs; external link such as https://docs.newapi.pro",
+    "请求示例": "Request example",
+    "响应示例": "Response example",
+    "上一页": "Previous page",
+    "下一页": "Next page",
+    "文档位置": "Document location",
+    "文档翻页": "Document pagination"
   }
 }

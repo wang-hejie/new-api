@@ -30,11 +30,11 @@ test.afterAll(async () => {
 
 test.describe("docs page integration", () => {
   test("redirects /docs to the first embedded document", async ({ page }) => {
-    await page.goto("/docs");
-    await page.waitForURL("**/docs/gpt-image-2");
+    await page.goto("/docs", { waitUntil: "domcontentloaded" });
     await expect(
-      page.getByRole("heading", { name: "gpt-image-2 使用指南" }).first(),
+      page.getByRole("heading", { name: "gpt-image-2 概览" }).first(),
     ).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe("/docs/gpt-image-2");
   });
 
   test("renders desktop nav, markdown content, and computed styles", async ({
@@ -45,46 +45,51 @@ test.describe("docs page integration", () => {
       res.url().includes("/api/docs/content?slug=gpt-image-2"),
     );
 
-    const aside = page.locator("aside").first();
-    await expect(aside.getByText("文档中心")).toBeVisible();
-    await expect(aside.getByText("模型指南")).toBeVisible();
-    await expect(aside.getByText("gpt-image-2 使用指南")).toBeVisible();
+    const shell = page.locator(".docs-shell").first();
+    const sidebar = page.locator(".docs-sidebar").first();
+    await expect(sidebar.getByText("文档中心")).toBeVisible();
+    await expect(sidebar.getByText("模型指南")).toBeVisible();
+    await expect(sidebar.getByText("gpt-image-2 概览")).toBeVisible();
     await expect(
-      aside
-        .locator(
-          '[class*="selected"], [aria-current="page"], [aria-selected="true"]',
-        )
-        .filter({ hasText: "gpt-image-2 使用指南" })
+      sidebar
+        .locator('[aria-current="page"], .docs-sidebar-link.is-active')
+        .filter({ hasText: "gpt-image-2 概览" })
         .first(),
     ).toBeVisible();
 
     const article = page.locator("article").first();
     await expect(
-      article.getByText("模型指南 / gpt-image-2 使用指南"),
+      article.getByText("模型指南 / gpt-image-2 概览"),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "gpt-image-2 使用指南" }).first(),
+      page.getByRole("heading", { name: "gpt-image-2 概览" }).first(),
     ).toBeVisible();
-    await expect(article.getByText("1. 快速开始")).toBeVisible();
-    await expect(article.getByText("Base URL")).toBeVisible();
+    await expect(
+      article.getByRole("heading", { name: "API Reference" }),
+    ).toBeVisible();
+    await expect(
+      article.getByRole("heading", { name: "Base URL" }),
+    ).toBeVisible();
+    await expect(sidebar.getByText("文本生成图像")).toBeVisible();
+    await expect(sidebar.getByText("参考图编辑")).toBeVisible();
+    await expect(sidebar.getByText("集成示例")).toBeVisible();
     await expect(article.locator("table").first()).toBeVisible();
     await expect(article.locator("pre code").first()).toBeVisible();
+    await expect(page.locator(".docs-toc")).toHaveCount(0);
 
     expect(
       await page.evaluate(() => localStorage.getItem("docs:gpt-image-2")),
     ).toBeNull();
 
-    expectNonTransparentColor(await computed(aside, "background-color"));
-    expectNonTransparentColor(await computed(aside, "border-right-color"));
-
-    const pageSurface = page.locator(".mt-16.bg-semi-color-bg-0").first();
-    expectNonTransparentColor(await computed(pageSurface, "background-color"));
+    expectNonTransparentColor(await computed(sidebar, "background-color"));
+    expectNonTransparentColor(await computed(sidebar, "border-right-color"));
+    expectNonTransparentColor(await computed(shell, "background-color"));
 
     const mainBox = await page.locator("main").first().boundingBox();
     expect(mainBox?.height || 0).toBeGreaterThan(0);
 
     await page.evaluate(() => document.documentElement.classList.add("dark"));
-    expectNonTransparentColor(await computed(aside, "background-color"));
+    expectNonTransparentColor(await computed(sidebar, "background-color"));
   });
 
   test("shows an empty state for an unknown slug while keeping the nav", async ({
@@ -93,7 +98,7 @@ test.describe("docs page integration", () => {
     await page.goto("/docs/does-not-exist");
 
     await expect(page.getByText("文档不存在").first()).toBeVisible();
-    await expect(page.locator("aside").getByText("文档中心")).toBeVisible();
+    await expect(page.locator(".docs-sidebar").getByText("文档中心")).toBeVisible();
   });
 
   test("switches documents from nav when more than one document exists", async ({
@@ -110,9 +115,9 @@ test.describe("docs page integration", () => {
 
     await page.goto("/docs/gpt-image-2");
     await expect(
-      page.getByRole("heading", { name: "gpt-image-2 使用指南" }).first(),
+      page.getByRole("heading", { name: "gpt-image-2 概览" }).first(),
     ).toBeVisible();
-    await page.locator("aside").getByText(target.title).click();
+    await page.locator(".docs-sidebar").getByText(target.title).click();
     await page.waitForURL(`**/docs/${target.slug}`);
     await expect(
       page.getByRole("heading", { name: target.title }).first(),
@@ -126,18 +131,68 @@ test.describe("docs page integration", () => {
     ).toBeNull();
   });
 
+  test("renders operation-first pages with request and response examples", async ({
+    page,
+  }) => {
+    await page.goto("/docs/gpt-image-2-generations");
+    await page.waitForResponse((res) =>
+      res.url().includes("/api/docs/content?slug=gpt-image-2-generations"),
+    );
+
+    const article = page.locator("article").first();
+    await expect(
+      page.getByRole("heading", { name: "文本生成图像" }).first(),
+    ).toBeVisible();
+    await expect(
+      article.getByRole("heading", { name: "Authorizations" }),
+    ).toBeVisible();
+    await expect(
+      article.getByRole("heading", { name: "POST /v1/images/generations" }),
+    ).toBeVisible();
+    await expect(
+      article.getByRole("heading", { name: "Body application/json" }),
+    ).toBeVisible();
+    await expect(
+      article.getByRole("heading", { name: "Response 200 application/json" }),
+    ).toBeVisible();
+    await expect(
+      article
+        .locator("pre code")
+        .filter({ hasText: "POST /v1/images/generations" }),
+    ).toBeVisible();
+    await expect(
+      article.locator("pre code").filter({ hasText: '"created": 1777407264' }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".docs-aside .docs-code-card")
+        .filter({ hasText: "请求示例" })
+        .filter({ hasText: "/v1/images/generations" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".docs-aside .docs-code-card")
+        .filter({ hasText: "响应示例" })
+        .filter({ hasText: '"created": 1777407264' }),
+    ).toBeVisible();
+    await expect(page.locator(".docs-toc")).toHaveCount(0);
+  });
+
   test("opens and closes the mobile document SideSheet", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/docs");
-    await page.waitForURL("**/docs/gpt-image-2");
+    await expect(
+      page.getByRole("heading", { name: "gpt-image-2 概览" }).first(),
+    ).toBeVisible();
 
-    await expect(page.locator("aside")).toHaveCount(0);
+    await expect(page.locator(".docs-aside")).toBeHidden();
+    await expect(page.locator(".docs-sidebar").first()).toBeHidden();
     await page.getByLabel("返回文档列表").click();
 
     const sideSheet = page.locator(".semi-sidesheet").first();
     await expect(sideSheet).toBeVisible();
     await expect(sideSheet.getByText("文档中心")).toBeVisible();
-    await sideSheet.getByText("gpt-image-2 使用指南").click();
+    await sideSheet.getByRole("button", { name: "gpt-image-2 概览" }).click();
     await expect(sideSheet).toBeHidden();
   });
 
@@ -146,19 +201,38 @@ test.describe("docs page integration", () => {
   }) => {
     await page.addInitScript(() => {
       localStorage.setItem("i18nextLng", "en");
+      localStorage.setItem(
+        "user",
+        JSON.stringify({ id: -1, role: 100, setting: '{"language":"en"}' }),
+      );
     });
 
     await page.goto("/docs/gpt-image-2");
     await expect(
-      page.locator("aside").getByText("Documentation Center"),
+      page.locator(".docs-sidebar").getByText("Documentation Center"),
     ).toBeVisible();
-    await expect(page.locator("aside").getByText("文档中心")).toHaveCount(0);
+    await expect(page.locator(".docs-sidebar").getByText("文档中心")).toHaveCount(0);
   });
 
   test("shows skeletons while the docs list is loading", async ({ page }) => {
-    await page.route("**/api/docs/list", async (route) => {
+    await page.route(/\/api\/docs\/list(?:\?.*)?$/, async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      await route.continue();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          message: "",
+          data: [
+            {
+              slug: "gpt-image-2",
+              title: "gpt-image-2 概览",
+              order: 10,
+              category: "模型指南",
+            },
+          ],
+        }),
+      });
     });
 
     await page.goto("/docs/gpt-image-2", { waitUntil: "domcontentloaded" });
@@ -170,7 +244,7 @@ test.describe("docs page integration", () => {
         .first(),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "gpt-image-2 使用指南" }).first(),
+      page.getByRole("heading", { name: "gpt-image-2 概览" }).first(),
     ).toBeVisible();
   });
 });

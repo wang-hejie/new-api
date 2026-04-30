@@ -1,14 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { join } from 'node:path';
 import {
   cleanupFixtures,
   prepareFixtures,
   type E2EFixtureState,
 } from './fixtures';
-import { localStorageConfig, openPlayground, uploadReference } from './helpers';
-
-const asset = (name: string) =>
-  join(process.cwd(), '..', 'scripts/e2e/gpt-image-2/test-assets', name);
+import {
+  imageTestAsset,
+  localStorageConfig,
+  openPlayground,
+  uploadReference,
+} from './helpers';
 
 test.describe.serial('playground image config persistence', () => {
   let state: E2EFixtureState;
@@ -29,7 +30,7 @@ test.describe.serial('playground image config persistence', () => {
       size: '1024x1536',
       quality: 'low',
     });
-    await uploadReference(page, asset('apple_red.png'));
+    await uploadReference(page, imageTestAsset('apple_red.png'));
     await page.waitForTimeout(1200);
 
     const config = await localStorageConfig(page);

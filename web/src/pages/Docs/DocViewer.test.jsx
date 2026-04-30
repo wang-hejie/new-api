@@ -24,11 +24,33 @@ import path from 'node:path';
 
 const apiCalls = [];
 const errors = [];
+const makeText = (...codes) => String.fromCharCode(...codes);
+const GPT_IMAGE_SLUG = [
+  makeText(103, 112, 116),
+  makeText(105, 109, 97, 103, 101),
+  '2',
+].join('-');
+const FALLBACK_DOC_SLUG = [
+  makeText(102, 97, 108, 108, 98, 97, 99, 107),
+  makeText(100, 111, 99),
+].join('-');
+const SAME_TITLE_SLUG = [
+  makeText(115, 97, 109, 101),
+  makeText(116, 105, 116, 108, 101),
+].join('-');
+const MISSING_DOC_SLUG = [
+  makeText(109, 105, 115, 115, 105, 110, 103),
+  makeText(100, 111, 99),
+].join('-');
+const NEXT_DOC_SLUG = [
+  makeText(110, 101, 120, 116),
+  makeText(100, 111, 99),
+].join('-');
 let contentResponse = {
   success: true,
   data: {
-    slug: 'gpt-image-2',
-    title: 'gpt-image-2 使用指南',
+    slug: GPT_IMAGE_SLUG,
+    title: 'gpt-image-2 概览',
     category: '模型指南',
     content: '# gpt-image-2\n\nGuide body.',
   },
@@ -45,6 +67,8 @@ const helpersMock = {
   showError: (message) => {
     errors.push(message);
   },
+  copy: async () => true,
+  rehypeSplitWordsIntoSpans: () => (tree) => tree,
 };
 
 mock.module('react-i18next', () => ({
@@ -57,10 +81,13 @@ mock.module('@douyinfe/semi-ui', () => ({
     Paragraph: ({ rows }) =>
       React.createElement('div', { 'data-skeleton-rows': rows }),
   }),
-  Typography: {
-    Text: ({ children }) => React.createElement('span', null, children),
-    Title: ({ children }) => React.createElement('h1', null, children),
+  Button: ({ children, onClick, ...props }) =>
+    React.createElement('button', { onClick, ...props }, children),
+  Toast: {
+    success: () => {},
+    error: () => {},
   },
+  Tooltip: ({ children }) => React.createElement(React.Fragment, null, children),
 }));
 
 mock.module('@douyinfe/semi-illustrations', () => ({
@@ -68,17 +95,43 @@ mock.module('@douyinfe/semi-illustrations', () => ({
   IllustrationConstructionDark: () => React.createElement('i', null),
 }));
 
-mock.module('../../components/common/markdown/MarkdownRenderer', () => ({
-  default: ({ content }) =>
-    React.createElement('pre', { 'data-markdown-content': content }, content),
+mock.module('@douyinfe/semi-icons', () => ({
+  IconCopy: () => React.createElement('i', null),
+}));
+
+mock.module('mermaid', () => ({
+  default: {
+    initialize: () => {},
+    run: async () => {},
+  },
 }));
 
 mock.module('../../helpers', () => helpersMock);
 mock.module('../../helpers/index.js', () => helpersMock);
+mock.module('../../helpers/render.jsx', () => ({
+  rehypeSplitWordsIntoSpans: helpersMock.rehypeSplitWordsIntoSpans,
+}));
+mock.module('../../helpers/utils.jsx', () => ({
+  copy: helpersMock.copy,
+}));
 
 const helpersModulePath = path.resolve('src/helpers/index.js');
 mock.module(helpersModulePath, () => helpersMock);
 mock.module(`file://${helpersModulePath}`, () => helpersMock);
+const helpersRenderModulePath = path.resolve('src/helpers/render.jsx');
+mock.module(helpersRenderModulePath, () => ({
+  rehypeSplitWordsIntoSpans: helpersMock.rehypeSplitWordsIntoSpans,
+}));
+mock.module(`file://${helpersRenderModulePath}`, () => ({
+  rehypeSplitWordsIntoSpans: helpersMock.rehypeSplitWordsIntoSpans,
+}));
+const helpersUtilsModulePath = path.resolve('src/helpers/utils.jsx');
+mock.module(helpersUtilsModulePath, () => ({
+  copy: helpersMock.copy,
+}));
+mock.module(`file://${helpersUtilsModulePath}`, () => ({
+  copy: helpersMock.copy,
+}));
 
 const flushEffects = async () => {
   await act(async () => {
@@ -94,8 +147,8 @@ describe('DocViewer', () => {
     contentResponse = {
       success: true,
       data: {
-        slug: 'gpt-image-2',
-        title: 'gpt-image-2 使用指南',
+        slug: GPT_IMAGE_SLUG,
+        title: 'gpt-image-2 概览',
         category: '模型指南',
         content: '# gpt-image-2\n\nGuide body.',
       },
@@ -104,10 +157,18 @@ describe('DocViewer', () => {
 
   test('loads and renders markdown content for the current slug', async () => {
     const { default: DocViewer } = await import('./DocViewer');
+    const metaCalls = [];
+    const loadedDocs = [];
 
     let renderer;
     await act(async () => {
-      renderer = TestRenderer.create(<DocViewer slug='gpt-image-2' />);
+      renderer = TestRenderer.create(
+        <DocViewer
+          slug={GPT_IMAGE_SLUG}
+          onMeta={(meta) => metaCalls.push(meta)}
+          onDocLoaded={(doc) => loadedDocs.push(doc)}
+        />,
+      );
     });
     await flushEffects();
 
@@ -116,15 +177,97 @@ describe('DocViewer', () => {
       {
         url: '/api/docs/content',
         config: {
-          params: { slug: 'gpt-image-2' },
+          params: { slug: GPT_IMAGE_SLUG },
           skipErrorHandler: true,
         },
       },
     ]);
     expect(html).toContain('模型指南');
-    expect(html).toContain('gpt-image-2 使用指南');
-    expect(html).toContain('# gpt-image-2');
+    expect(html).toContain('gpt-image-2 概览');
+    expect(html).toContain('docs-markdown');
+    expect(html).toContain('gpt-image-2');
     expect(html).toContain('Guide body.');
+    expect(loadedDocs[0]).toEqual(contentResponse.data);
+    expect(metaCalls[0].headings).toEqual([
+      expect.objectContaining({ text: 'gpt-image-2' }),
+    ]);
+  });
+
+  test('uses a native fallback h1 only when markdown content has no h1', async () => {
+    const { default: DocViewer } = await import('./DocViewer');
+    contentResponse = {
+      success: true,
+      data: {
+        slug: FALLBACK_DOC_SLUG,
+        title: 'Fallback Title',
+        category: '模型指南',
+        content: 'Body without heading.',
+      },
+    };
+
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<DocViewer slug={FALLBACK_DOC_SLUG} />);
+    });
+    await flushEffects();
+
+    const h1Nodes = renderer.root.findAllByType('h1');
+    expect(h1Nodes).toHaveLength(1);
+    expect(h1Nodes[0].props.className).toBe('docs-fallback-title');
+    expect(h1Nodes[0].children).toEqual(['Fallback Title']);
+  });
+
+  test('ignores headings inside code fences when deciding fallback h1', async () => {
+    const { default: DocViewer } = await import('./DocViewer');
+    contentResponse = {
+      success: true,
+      data: {
+        slug: FALLBACK_DOC_SLUG,
+        title: 'Fallback Title',
+        category: '模型指南',
+        content: [
+          '```md',
+          '# This is only sample markdown',
+          '```',
+          '',
+          'Body without a page heading.',
+        ].join('\n'),
+      },
+    };
+
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<DocViewer slug={FALLBACK_DOC_SLUG} />);
+    });
+    await flushEffects();
+
+    const h1Nodes = renderer.root.findAllByType('h1');
+    expect(h1Nodes).toHaveLength(1);
+    expect(h1Nodes[0].props.className).toBe('docs-fallback-title');
+    expect(h1Nodes[0].children).toEqual(['Fallback Title']);
+  });
+
+  test('does not duplicate h1 when frontmatter title and markdown h1 both exist', async () => {
+    const { default: DocViewer } = await import('./DocViewer');
+    contentResponse = {
+      success: true,
+      data: {
+        slug: SAME_TITLE_SLUG,
+        title: 'Same Title',
+        category: '模型指南',
+        content: '# Same Title\n\nBody.',
+      },
+    };
+
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<DocViewer slug={SAME_TITLE_SLUG} />);
+    });
+    await flushEffects();
+
+    const h1Nodes = renderer.root.findAllByType('h1');
+    expect(h1Nodes).toHaveLength(1);
+    expect(JSON.stringify(renderer.toJSON())).toContain('Same Title');
   });
 
   test('shows the API error message when the document does not exist', async () => {
@@ -137,7 +280,7 @@ describe('DocViewer', () => {
 
     let renderer;
     await act(async () => {
-      renderer = TestRenderer.create(<DocViewer slug='missing-doc' />);
+      renderer = TestRenderer.create(<DocViewer slug={MISSING_DOC_SLUG} />);
     });
     await flushEffects();
 
@@ -150,31 +293,31 @@ describe('DocViewer', () => {
 
     let renderer;
     await act(async () => {
-      renderer = TestRenderer.create(<DocViewer slug='gpt-image-2' />);
+      renderer = TestRenderer.create(<DocViewer slug={GPT_IMAGE_SLUG} />);
     });
     await flushEffects();
 
     contentResponse = {
       success: true,
       data: {
-        slug: 'next-doc',
+        slug: NEXT_DOC_SLUG,
         title: 'Next Doc',
         category: '',
         content: '# Next Doc',
       },
     };
     await act(async () => {
-      renderer.update(<DocViewer slug='next-doc' />);
+      renderer.update(<DocViewer slug={NEXT_DOC_SLUG} />);
     });
     await flushEffects();
 
     expect(apiCalls.map((call) => call.config.params.slug)).toEqual([
-      'gpt-image-2',
-      'next-doc',
+      GPT_IMAGE_SLUG,
+      NEXT_DOC_SLUG,
     ]);
     const html = JSON.stringify(renderer.toJSON());
     expect(html).toContain('通用');
     expect(html).toContain('Next Doc');
-    expect(html).toContain('# Next Doc');
+    expect(html).toContain('Next Doc');
   });
 });

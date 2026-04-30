@@ -1,14 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { join } from 'node:path';
 import {
   cleanupFixtures,
   prepareFixtures,
   type E2EFixtureState,
 } from './fixtures';
-import { openPlayground, uploadReference } from './helpers';
-
-const asset = (name: string) =>
-  join(process.cwd(), '..', 'scripts/e2e/gpt-image-2/test-assets', name);
+import { imageTestAsset, openPlayground, uploadReference } from './helpers';
 
 test.describe.serial('gpt-image-2 guards', () => {
   let state: E2EFixtureState;
@@ -89,7 +85,7 @@ test.describe.serial('gpt-image-2 guards', () => {
       model: 'gpt-image-2',
       imageRequestMode: 'edit',
     });
-    await uploadReference(page, asset('bad_mime.txt'));
+    await uploadReference(page, imageTestAsset('bad_mime.txt'));
     await expect(
       page
         .locator('.semi-toast')
@@ -98,7 +94,7 @@ test.describe.serial('gpt-image-2 guards', () => {
     ).toBeVisible();
     await expect(page.getByText('bad_mime.txt')).toHaveCount(0);
 
-    await uploadReference(page, asset('too_large.png'));
+    await uploadReference(page, imageTestAsset('too_large.png'));
     await expect(
       page
         .locator('.semi-toast')

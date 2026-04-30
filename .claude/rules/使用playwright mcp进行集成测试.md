@@ -64,6 +64,8 @@ curl -fsS http://127.0.0.1:9991/api/status
 docker compose logs -f new-api
 ```
 
+页面级本地 E2E 必须关闭 Web 全局限流，否则密集导航和静态资源请求可能返回 429。用 Compose override 或专用 E2E 容器把 `GLOBAL_WEB_RATE_LIMIT_ENABLE=false` 注入 `new-api` 容器环境；如测试包含大量初始化、登录或设置请求，同时提高 `GLOBAL_API_RATE_LIMIT` / `CRITICAL_RATE_LIMIT`。不要只在 `docker compose up` 命令前临时声明环境变量，除非 compose 文件显式引用并转发这些变量。
+
 只在独占 E2E 数据库中才允许删除 volume：
 
 ```bash

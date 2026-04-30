@@ -17,8 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
-import { Empty, Skeleton, Typography } from '@douyinfe/semi-ui';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Empty, Skeleton } from '@douyinfe/semi-ui';
 import {
   IllustrationConstruction,
   IllustrationConstructionDark,
@@ -26,14 +26,51 @@ import {
 import { useTranslation } from 'react-i18next';
 import { API, showError } from '../../helpers';
 import MarkdownRenderer from '../../components/common/markdown/MarkdownRenderer';
+import DocsBreadcrumb from './components/DocsBreadcrumb';
 
-const { Text, Title } = Typography;
+export const markdownStartsWithH1 = (content = '') => {
+  const lines = String(content).split(/\r?\n/);
+  let inFence = false;
+  let fenceMarker = '';
+  let fenceLength = 0;
 
-const DocViewer = ({ slug }) => {
+  return lines.some((line) => {
+    const trimmed = line.trim();
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
+
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      const markerLength = fenceMatch[1].length;
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = marker;
+        fenceLength = markerLength;
+      } else if (marker === fenceMarker && markerLength >= fenceLength) {
+        inFence = false;
+        fenceMarker = '';
+        fenceLength = 0;
+      }
+      return false;
+    }
+
+    if (inFence || !trimmed || /^( {4,}|\t)/.test(line)) {
+      return false;
+    }
+
+    return /^#\s+/.test(trimmed);
+  });
+};
+
+const DocViewer = ({ slug, onMeta, onDocLoaded, footer }) => {
   const { t } = useTranslation();
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const hasMarkdownH1 = useMemo(
+    () => markdownStartsWithH1(doc?.content || ''),
+    [doc?.content],
+  );
 
   useEffect(() => {
     if (!slug) return;
@@ -52,14 +89,19 @@ const DocViewer = ({ slug }) => {
         if (!mounted) return;
         if (success) {
           setDoc(data);
+          onDocLoaded?.(data);
         } else {
           const nextError = message || t('文档不存在');
           setError(nextError);
+          onDocLoaded?.(null);
+          onMeta?.({ headings: [], codeBlocks: [] });
           showError(nextError);
         }
       } catch (error) {
         if (mounted) {
           setError(t('加载文档失败'));
+          onDocLoaded?.(null);
+          onMeta?.({ headings: [], codeBlocks: [] });
           showError(t('加载文档失败'));
         }
       } finally {
@@ -71,11 +113,18 @@ const DocViewer = ({ slug }) => {
     return () => {
       mounted = false;
     };
-  }, [slug, t]);
+  }, [onDocLoaded, onMeta, slug, t]);
+
+  useEffect(() => {
+    if (!slug) {
+      onDocLoaded?.(null);
+      onMeta?.({ headings: [], codeBlocks: [] });
+    }
+  }, [onDocLoaded, onMeta, slug]);
 
   if (loading) {
     return (
-      <div className='mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-8'>
+      <div className='docs-main-inner'>
         <Skeleton
           placeholder={<Skeleton.Paragraph rows={14} />}
           loading
@@ -87,7 +136,7 @@ const DocViewer = ({ slug }) => {
 
   if (error || !doc) {
     return (
-      <div className='flex min-h-full items-center justify-center p-6'>
+      <div className='docs-main-inner'>
         <Empty
           title={error || t('文档不存在')}
           image={<IllustrationConstruction style={{ width: 150, height: 150 }} />}
@@ -100,18 +149,16 @@ const DocViewer = ({ slug }) => {
   }
 
   return (
-    <article className='mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-8'>
-      <div className='mb-6 border-b border-semi-color-border pb-4'>
-        <Text type='tertiary' size='small'>
-          {doc.category || t('通用')} / {doc.title}
-        </Text>
-        <Title heading={2} className='mt-2 !mb-0'>
-          {doc.title}
-        </Title>
-      </div>
-      <div className='docs-markdown'>
-        <MarkdownRenderer content={doc.content || ''} />
-      </div>
+    <article className='docs-main-inner'>
+      <DocsBreadcrumb category={doc.category || t('通用')} title={doc.title} />
+      {!hasMarkdownH1 && <h1 className='docs-fallback-title'>{doc.title}</h1>}
+      <MarkdownRenderer
+        content={doc.content || ''}
+        variant='docs'
+        headingIdPrefix={`docs-${doc.slug}-`}
+        onDocsMetaExtract={onMeta}
+      />
+      {footer}
     </article>
   );
 };

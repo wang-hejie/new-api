@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { join } from 'node:path';
 import {
   cleanupFixtures,
   mockEcho,
@@ -10,12 +9,10 @@ import {
   assistantImages,
   expectImageLoaded,
   fillPrompt,
+  imageTestAsset,
   openPlayground,
   uploadReference,
 } from './helpers';
-
-const asset = (name: string) =>
-  join(process.cwd(), '..', 'scripts/e2e/gpt-image-2/test-assets', name);
 
 const sendEditRequest = async (page, prompt: string) => {
   const responsePromise = page.waitForResponse(
@@ -64,7 +61,7 @@ test.describe.serial('gpt-image-2 regeneration guards', () => {
       imageRequestMode: 'edit',
       responseFormat: 'b64_json',
     });
-    await uploadReference(page, asset('apple_red.png'));
+    await uploadReference(page, imageTestAsset('apple_red.png'));
     await sendEditRequest(page, 'initial edit prompt');
 
     const responsePromise = page.waitForResponse(
@@ -94,7 +91,7 @@ test.describe.serial('gpt-image-2 regeneration guards', () => {
       imageRequestMode: 'edit',
       responseFormat: 'b64_json',
     });
-    await uploadReference(page, asset('apple_red.png'));
+    await uploadReference(page, imageTestAsset('apple_red.png'));
     await sendEditRequest(page, 'reload guarded edit prompt');
     await page.reload();
     await expect(page.getByText('上传参考图')).toBeVisible();

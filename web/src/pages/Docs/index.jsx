@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import DocsLayout from './DocsLayout';
+import './docs-theme.css';
 
 const Docs = () => <DocsLayout />;
 

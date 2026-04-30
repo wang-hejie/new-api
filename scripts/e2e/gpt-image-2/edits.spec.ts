@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { join } from 'node:path';
 import {
   cleanupFixtures,
   mockEcho,
@@ -10,12 +9,10 @@ import {
   assistantImages,
   expectImageLoaded,
   fillPrompt,
+  imageTestAsset,
   openPlayground,
   uploadReference,
 } from './helpers';
-
-const asset = (name: string) =>
-  join(process.cwd(), '..', 'scripts/e2e/gpt-image-2/test-assets', name);
 
 test.describe.serial('gpt-image-2 edits', () => {
   let state: E2EFixtureState;
@@ -43,7 +40,7 @@ test.describe.serial('gpt-image-2 edits', () => {
     await expect(
       page.getByText('参考用途', { exact: true }).first(),
     ).toBeVisible();
-    await uploadReference(page, asset('apple_red.png'));
+    await uploadReference(page, imageTestAsset('apple_red.png'));
     await expect(page.getByText('apple_red.png')).toBeVisible();
 
     const responsePromise = page.waitForResponse(
@@ -94,7 +91,7 @@ test.describe.serial('gpt-image-2 edits', () => {
         imageRequestMode: 'edit',
         responseFormat: 'b64_json',
       });
-      await uploadReference(page, asset(fileName));
+      await uploadReference(page, imageTestAsset(fileName));
 
       const responsePromise = page.waitForResponse(
         (response) =>

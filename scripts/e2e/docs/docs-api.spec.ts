@@ -29,13 +29,33 @@ test.describe("docs API integration", () => {
     await api.dispose();
 
     expect(docs.length).toBeGreaterThanOrEqual(1);
-    expect(docs).toContainEqual(
-      expect.objectContaining({
-        slug: "gpt-image-2",
-        title: "gpt-image-2 使用指南",
-        category: "模型指南",
-        order: 10,
-      }),
+    expect(docs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slug: "gpt-image-2",
+          title: "gpt-image-2 概览",
+          category: "模型指南",
+          order: 10,
+        }),
+        expect.objectContaining({
+          slug: "gpt-image-2-generations",
+          title: "文本生成图像",
+          category: "模型指南",
+          order: 20,
+        }),
+        expect.objectContaining({
+          slug: "gpt-image-2-edits",
+          title: "参考图编辑",
+          category: "模型指南",
+          order: 30,
+        }),
+        expect.objectContaining({
+          slug: "gpt-image-2-examples",
+          title: "集成示例",
+          category: "模型指南",
+          order: 40,
+        }),
+      ]),
     );
 
     for (const doc of docs) {
@@ -62,12 +82,44 @@ test.describe("docs API integration", () => {
     expect(body.data).toEqual(
       expect.objectContaining({
         slug: "gpt-image-2",
-        title: "gpt-image-2 使用指南",
+        title: "gpt-image-2 概览",
         category: "模型指南",
       }),
     );
     expect(body.data.content).not.toContain("---\nslug:");
-    expect(body.data.content).toContain("## 1. 快速开始");
+    expect(body.data.content).toContain("## API Reference");
+    expect(body.data.content).toContain("## Retry Policy");
+  });
+
+  test("operation pages expose request and response code metadata", async () => {
+    const api = await request.newContext({ baseURL: BASE_URL });
+    const generations = await api.get(
+      "/api/docs/content?slug=gpt-image-2-generations",
+    );
+    const edits = await api.get("/api/docs/content?slug=gpt-image-2-edits");
+
+    const generationsBody = await generations.json();
+    expect(generationsBody.success, generationsBody.message).toBeTruthy();
+    expect(generationsBody.data.content).toContain(
+      '```http request title="文本生成图像" method=POST path="/v1/images/generations"',
+    );
+    expect(generationsBody.data.content).toContain(
+      '```json response status=200 title="成功响应"',
+    );
+    expect(generationsBody.data.content).toContain(
+      "## POST `/v1/images/generations`",
+    );
+
+    const editsBody = await edits.json();
+    expect(editsBody.success, editsBody.message).toBeTruthy();
+    expect(editsBody.data.content).toContain(
+      '```bash request title="multipart 请求" method=POST path="/v1/images/edits"',
+    );
+    expect(editsBody.data.content).toContain(
+      '```json response status=200 title="成功响应"',
+    );
+    expect(editsBody.data.content).toContain("## POST `/v1/images/edits`");
+    await api.dispose();
   });
 
   test("missing, blank, unknown, traversal, and maintenance slugs are rejected", async () => {
