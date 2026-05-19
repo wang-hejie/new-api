@@ -152,3 +152,14 @@ When working on tiered/dynamic billing (expression-based pricing), you MUST read
 ### Rule 8: Playwright E2E — Disable Local Web Rate Limit
 
 本地浏览器/页面级 E2E 必须让 Docker Compose 服务关闭 Web 全局限流：`GLOBAL_WEB_RATE_LIMIT_ENABLE=false`。如果测试包含大量初始化、登录或设置请求，同时提高 `GLOBAL_API_RATE_LIMIT` / `CRITICAL_RATE_LIMIT`；这些变量必须进入容器环境，不能只写在 `docker compose up` 命令前，除非 compose 文件显式转发。
+
+## 可用 Slash Commands
+
+项目在 `.claude/commands/` 下提供以下自定义 slash command，遇到对应场景请优先调用而非手写命令序列：
+
+- `/backend_check` → `.claude/commands/backend_check.md` — 本地后端 CI 检查（gofmt、go vet、golangci-lint、go test、go build）
+- `/frontend_check` → `.claude/commands/frontend_check.md` — 本地前端 CI 检查
+- `/local_ci_all` → `.claude/commands/local_ci_all.md` — 一键串行执行前后端本地 CI
+- `/remote_server_upgrade` → `.claude/commands/remote_server_upgrade.md` — 远程服务器项目版本升级
+- `/git_merge_develop` → `.claude/commands/git_merge_develop.md` — 将当前 feature 分支以 PR 形式合入 `develop`，含 CI 监控、anti-slop PR 模板校验、合并后清理本地分支与独立 worktree
+- `/git_merge_main` → `.claude/commands/git_merge_main.md` — 将 `develop` 以 release PR 形式合入 `main`，含 CI 监控（不在本流程内修复代码失败）、按当前工作树状态安全拉取最新 `main`
