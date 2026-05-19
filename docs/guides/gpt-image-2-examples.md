@@ -37,18 +37,6 @@ with open("out.png", "wb") as f:
     f.write(base64.b64decode(resp.data[0].b64_json))
 ```
 
-### 显式返回 URL
-
-```python example title="Python URL 响应"
-resp = client.images.generate(
-    model="gpt-image-2",
-    prompt="a serene mountain lake at dawn",
-    response_format="url",
-)
-
-url = resp.data[0].url
-```
-
 ### 参考图编辑
 
 ```python example title="Python 参考图编辑"
@@ -60,7 +48,6 @@ with open("input.png", "rb") as img:
         n=1,
         size="1024x1024",
         quality="low",
-        extra_body={"reference_usage": "subject"},
     )
 
 with open("edited.png", "wb") as f:
@@ -100,24 +87,11 @@ curl https://www.aiartmirror.com/v1/images/generations \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-image-2",
-    "prompt": "a red apple on a white background",
+    "prompt": "a red apple on a white surface",
     "n": 1,
     "size": "1024x1024",
     "quality": "low"
   }' | jq -r '.data[0].b64_json' | base64 -d > apple.png
-```
-
-### 返回 URL
-
-```bash example title="curl URL 响应"
-curl https://www.aiartmirror.com/v1/images/generations \
-  -H "Authorization: Bearer <YOUR_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt-image-2",
-    "prompt": "a red apple on a white background",
-    "response_format": "url"
-  }' | jq -r '.data[0].url'
 ```
 
 ### 参考图编辑
@@ -130,6 +104,5 @@ curl https://www.aiartmirror.com/v1/images/edits \
   -F "n=1" \
   -F "size=1024x1024" \
   -F "quality=low" \
-  -F "reference_usage=subject" \
   -F "image=@input.png"
 ```
