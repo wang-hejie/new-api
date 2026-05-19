@@ -7,7 +7,7 @@ category: 模型指南
 
 # gpt-image-2 概览
 
-- OpenAI 兼容图像接口，当前可用模型名为 `gpt-image-2`
+- OpenAI Images 风格接口，当前可用模型名为 `gpt-image-2`
 - 支持文本生成图像与参考图编辑两个主接口
 - 本文档基于 `https://www.aiartmirror.com/` 的真实回归测试结果整理
 
@@ -24,9 +24,8 @@ Authorization: Bearer <YOUR_TOKEN>
 | 项 | 值 |
 |---|---|
 | Base URL | `https://www.aiartmirror.com/v1` |
-| 协议 | OpenAI 兼容 |
+| 协议 | OpenAI Images API 风格 |
 | 推荐客户端超时 | 不低于 120 秒 |
-| 默认响应格式 | 不传 `response_format` 时返回 `b64_json` |
 
 ## API Reference
 
@@ -46,10 +45,7 @@ Authorization: Bearer <YOUR_TOKEN>
 
 ## 通用限制
 
-- `response_format="url"` 返回预签名 URL，24 小时内有效。
 - `n > 1` 时按成功返回的图片张数计费，且同步请求耗时会增加。
-- 当前上游会静默忽略 `aspect_ratio` 字段；需要超宽图时优先在 prompt 中写明 `panorama` / `cinematic ultrawide`，或使用显式 `size`。
-- 不建议传 `background: true` 走异步路径；该参数可能被部分透传，但轮询路径不可用，可能产生不可预期的计费结果。
 
 ## 计费规则
 
@@ -102,10 +98,6 @@ Authorization: Bearer <YOUR_TOKEN>
 
 A: 不可以，会返回 503 `model_not_found`。当前只接受 `gpt-image-2`。
 
-**Q: URL 模式返回的图片多久失效?**
-
-A: 24 小时，建议拿到 URL 后尽快下载存档。
-
 **Q: 失败了还会计费吗?**
 
 A: 同步失败的 4xx / 5xx 不计费，只有同步 HTTP 200 成功才计费。
@@ -116,7 +108,7 @@ A: `n` 字段最大 10，但越多越慢，建议同步场景 `n <= 4`。
 
 **Q: 支持哪些图片输入格式做 edits?**
 
-A: 推荐 PNG，其他格式视上游兼容性。
+A: 推荐 PNG，其他格式以上游实际支持为准。
 
 ## 联系
 

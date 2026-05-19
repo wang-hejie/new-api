@@ -9,7 +9,6 @@ category: 模型指南
 
 - 使用 `POST /v1/images/edits` 基于参考图生成编辑结果
 - 推荐上传 PNG 参考图
-- `reference_usage` 可用于表达主体、构图或风格参考意图
 
 ## Authorizations
 
@@ -31,14 +30,12 @@ Content-Type: multipart/form-data
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|:---:|---|
-| `image` | file | 是 | 参考图，推荐 PNG；重复字段名可传多张 |
+| `image` | file | 是 | 参考图，推荐 PNG |
 | `prompt` | string | 是 | 编辑指令 |
-| `model` | string | 否 | 默认 `gpt-image-2` |
+| `model` | string | 是 | 必须传 `"gpt-image-2"` |
 | `n` | integer | 否 | 生成数量 |
 | `size` | string | 否 | 同 generations |
 | `quality` | string | 否 | 同 generations |
-| `response_format` | string | 否 | 同 generations |
-| `reference_usage` | string | 否 | `"subject"` / `"composition"` / `"style"`，默认 `"subject"` |
 
 ### Request Example
 
@@ -50,7 +47,6 @@ curl https://www.aiartmirror.com/v1/images/edits \
   -F "n=1" \
   -F "size=1024x1024" \
   -F "quality=low" \
-  -F "reference_usage=subject" \
   -F "image=@input.png"
 ```
 
@@ -68,8 +64,7 @@ curl https://www.aiartmirror.com/v1/images/edits \
     "output_tokens": 0,
     "total_tokens": 0
   },
-  "account": "...",
-  "reference_blobs": []
+  "account": "..."
 }
 ```
 
@@ -77,7 +72,7 @@ curl https://www.aiartmirror.com/v1/images/edits \
 
 | 输入 | 输出 | 耗时 | 计费结果 |
 |---|---|---|---|
-| 1024x1024 红苹果 PNG + `change the apple color to bright green` + `reference_usage=subject` | HTTP 200，1024x1024 PNG | 32s | 按 1 张成功编辑计费 |
+| 1024x1024 红苹果 PNG + `change the apple color to bright green` | HTTP 200，1024x1024 PNG | 32s | 按 1 张成功编辑计费 |
 
 ### Error Responses
 
