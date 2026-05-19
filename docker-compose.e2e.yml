@@ -1,0 +1,6 @@
+services:
+  new-api:
+    environment:
+      - GLOBAL_WEB_RATE_LIMIT_ENABLE=false
+      - GLOBAL_API_RATE_LIMIT=1000
+      - CRITICAL_RATE_LIMIT=1000

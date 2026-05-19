@@ -92,12 +92,6 @@ export const IMAGE_REQUEST_MODES = {
   EDIT: 'edit',
 };
 
-export const IMAGE_REFERENCE_USAGE = {
-  SUBJECT: 'subject',
-  COMPOSITION: 'composition',
-  STYLE: 'style',
-};
-
 // ========== 配置默认值 ==========
 export const DEFAULT_CONFIG = {
   inputs: {
@@ -116,7 +110,6 @@ export const DEFAULT_CONFIG = {
     prompt_quality: 'auto',
     prompt_n: 1,
     prompt_response_format: '',
-    prompt_reference_usage: IMAGE_REFERENCE_USAGE.SUBJECT,
     image_request_mode: IMAGE_REQUEST_MODES.GENERATION,
     image_reference_files: [],
   },

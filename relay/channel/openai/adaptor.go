@@ -40,6 +40,18 @@ type Adaptor struct {
 	ResponseFormat string
 }
 
+var openaiGPTImage2EditPassthrough = map[string]struct{}{
+	"prompt":             {},
+	"n":                  {},
+	"size":               {},
+	"quality":            {},
+	"user":               {},
+	"background":         {},
+	"moderation":         {},
+	"output_format":      {},
+	"output_compression": {},
+}
+
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
 	// 使用 service.GeminiToOpenAIRequest 转换请求格式
 	openaiRequest, err := service.GeminiToOpenAIRequest(request, info)
@@ -431,6 +443,8 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		writer := multipart.NewWriter(&requestBody)
 
 		writer.WriteField("model", request.Model)
+		isGPTImage2Edit := strings.EqualFold(request.Model, "gpt-image-2") ||
+			strings.EqualFold(info.UpstreamModelName, "gpt-image-2")
 		// 使用已解析的 multipart 表单，避免重复解析
 		mf := c.Request.MultipartForm
 		if mf == nil {
@@ -445,6 +459,11 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 			for key, values := range mf.Value {
 				if key == "model" {
 					continue
+				}
+				if isGPTImage2Edit {
+					if _, ok := openaiGPTImage2EditPassthrough[key]; !ok {
+						continue
+					}
 				}
 				for _, value := range values {
 					writer.WriteField(key, value)

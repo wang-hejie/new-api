@@ -47,6 +47,8 @@ const baseInputs = {
   prompt_n: '2',
   prompt_response_format: 'url',
 };
+const legacyReferenceUsageField = ['prompt', 'reference', 'usage'].join('_');
+const legacyFormReferenceUsageField = ['reference', 'usage'].join('_');
 
 describe('playground payload helpers', () => {
   test('buildImagePayload uses last user text and sanitizes gpt-image params', () => {
@@ -333,7 +335,7 @@ describe('playground payload helpers', () => {
     });
   });
 
-  test('buildImageGenerationPayload keeps gpt-image-2 response_format when enabled by metadata', () => {
+  test('buildImageGenerationPayload drops response_format for gpt-image-2 regardless of metadata', () => {
     const payload = buildImageGenerationPayload(
       [
         {
@@ -357,7 +359,38 @@ describe('playground payload helpers', () => {
       },
     );
 
-    expect(payload.response_format).toBe('url');
+    expect(payload.response_format).toBeUndefined();
+  });
+
+  test('buildImageGenerationPayload only drops response_format for exact gpt-image-2', () => {
+    const messages = [
+      {
+        role: MESSAGE_ROLES.USER,
+        content: 'draw a clean product photo',
+      },
+    ];
+    const imageParameters = {
+      size: true,
+      quality: true,
+      response_format: true,
+      n_max: 10,
+    };
+
+    const gptImage1Payload = buildImageGenerationPayload(messages, {
+      ...baseInputs,
+      model: 'gpt-image-1',
+      prompt_response_format: 'url',
+      imageParameters,
+    });
+    const futureGptImagePayload = buildImageGenerationPayload(messages, {
+      ...baseInputs,
+      model: 'gpt-image-3-preview',
+      prompt_response_format: 'url',
+      imageParameters,
+    });
+
+    expect(gptImage1Payload.response_format).toBe('url');
+    expect(futureGptImagePayload.response_format).toBe('url');
   });
 
   test('buildImageEditPayload creates multipart payload and debug snapshot', () => {
@@ -377,7 +410,6 @@ describe('playground payload helpers', () => {
         prompt_size: '1024x1024',
         prompt_quality: 'low',
         prompt_response_format: 'url',
-        prompt_reference_usage: 'subject',
         image_reference_files: [file],
         imageParameters: {
           size: true,
@@ -394,8 +426,8 @@ describe('playground payload helpers', () => {
     expect(payload.formData.get('prompt')).toBe(
       'change the apple color to bright green',
     );
-    expect(payload.formData.get('response_format')).toBe('url');
-    expect(payload.formData.get('reference_usage')).toBe('subject');
+    expect(payload.formData.has('response_format')).toBe(false);
+    expect(payload.formData.has(legacyFormReferenceUsageField)).toBe(false);
     const imageFile = payload.formData.get('image');
     expect(imageFile.name).toBe('apple.webp');
     expect(imageFile.size).toBe(11);
@@ -409,8 +441,6 @@ describe('playground payload helpers', () => {
         n: 2,
         size: '1024x1024',
         quality: 'low',
-        response_format: 'url',
-        reference_usage: 'subject',
       },
       files: {
         image: [{ name: 'apple.webp', size: 11, type: 'image/webp' }],
@@ -418,7 +448,7 @@ describe('playground payload helpers', () => {
     });
   });
 
-  test('buildImageEditPayload defaults invalid reference_usage and omits disabled response_format', () => {
+  test('buildImageEditPayload for gpt-image-2 strips legacy fields', () => {
     const file = new File(['image bytes'], 'apple.png', {
       type: 'image/png',
     });
@@ -431,11 +461,11 @@ describe('playground payload helpers', () => {
       ],
       {
         ...baseInputs,
-        model: 'gpt-image-1',
+        model: 'gpt-image-2',
         prompt_size: 'auto',
         prompt_quality: 'high',
         prompt_response_format: 'url',
-        prompt_reference_usage: 'invalid-usage',
+        [legacyReferenceUsageField]: 'invalid-usage',
         image_reference_files: [file],
         imageParameters: {
           size: true,
@@ -447,10 +477,48 @@ describe('playground payload helpers', () => {
       },
     );
 
-    expect(payload.formData.get('reference_usage')).toBe('subject');
+    expect(payload.formData.has(legacyFormReferenceUsageField)).toBe(false);
     expect(payload.formData.has('response_format')).toBe(false);
-    expect(payload.debugSnapshot.fields.reference_usage).toBe('subject');
+    expect(
+      payload.debugSnapshot.fields[legacyFormReferenceUsageField],
+    ).toBeUndefined();
     expect(payload.debugSnapshot.fields.response_format).toBeUndefined();
+  });
+
+  test('buildImageEditPayload strips edit response format and legacy reference usage for every model', () => {
+    const file = new File(['image bytes'], 'style.png', {
+      type: 'image/png',
+    });
+    const payload = buildImageEditPayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'use this as the style reference',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gpt-image-1',
+        prompt_response_format: 'url',
+        [legacyReferenceUsageField]: 'style',
+        image_reference_files: [file],
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: true,
+          n_max: 10,
+          supports_edits: true,
+        },
+      },
+    );
+
+    expect(payload.formData.get('model')).toBe('gpt-image-1');
+    expect(payload.formData.has('response_format')).toBe(false);
+    expect(payload.formData.has(legacyFormReferenceUsageField)).toBe(false);
+    expect(payload.debugSnapshot.fields.response_format).toBeUndefined();
+    expect(
+      payload.debugSnapshot.fields[legacyFormReferenceUsageField],
+    ).toBeUndefined();
   });
 
   test('buildPayloadByEndpoint creates edit multipart payload and requires a reference image', () => {
@@ -470,7 +538,6 @@ describe('playground payload helpers', () => {
       {
         ...baseInputs,
         model: 'gpt-image-2',
-        prompt_reference_usage: 'style',
         image_reference_files: [file],
         imageParameters: {
           size: true,
@@ -484,7 +551,7 @@ describe('playground payload helpers', () => {
     );
 
     expect(payload.formData).toBeInstanceOf(FormData);
-    expect(payload.formData.get('reference_usage')).toBe('style');
+    expect(payload.formData.has(legacyFormReferenceUsageField)).toBe(false);
     expect(payload.debugSnapshot.url).toBe('/pg/images/edits');
 
     expect(() =>

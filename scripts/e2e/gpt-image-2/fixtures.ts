@@ -18,6 +18,7 @@ export const TEST_MODELS = [
   'gemini-3.1-flash-image-preview',
   'gpt-4o',
 ];
+const PASS_THROUGH_OPTION_KEY = 'global.pass_through_request_enabled';
 
 export type E2EUser = {
   id: number;
@@ -34,6 +35,8 @@ export type E2EFixtureState = {
   channelId: number;
   createdUserByDb: boolean;
   originalModelPrice: string | null;
+  originalPassThroughRequestEnabled: string | null;
+  originalPassThroughRequestEnabledExists: boolean;
 };
 
 const POSTGRES_ENV = {
@@ -97,6 +100,52 @@ function psqlOutput(sql: string) {
       encoding: 'utf8',
     },
   ).trim();
+}
+
+function psqlRows(sql: string) {
+  const output = psqlOutput(sql);
+  return output ? output.split('\n') : [];
+}
+
+function sqlString(value: string) {
+  return `'${value.split("'").join("''")}'`;
+}
+
+function getDbOptionValue(key: string) {
+  const rows = psqlRows(
+    `SELECT value FROM options WHERE key = ${sqlString(key)} LIMIT 1;`,
+  );
+  if (rows.length === 0) {
+    return { exists: false, value: null };
+  }
+  return { exists: true, value: rows[0] };
+}
+
+function deleteDbOption(key: string) {
+  psql(`DELETE FROM options WHERE key = ${sqlString(key)};`);
+}
+
+async function restoreGlobalPassThrough(
+  api: APIRequestContext,
+  user: E2EUser,
+  originalValue?: string | null,
+  originalExists = true,
+) {
+  if (originalExists) {
+    await updateOptionValue(
+      api,
+      user,
+      PASS_THROUGH_OPTION_KEY,
+      originalValue || 'false',
+    );
+    return;
+  }
+
+  deleteDbOption(PASS_THROUGH_OPTION_KEY);
+  await updateOptionValue(api, user, PASS_THROUGH_OPTION_KEY, 'false').catch(
+    () => undefined,
+  );
+  deleteDbOption(PASS_THROUGH_OPTION_KEY);
 }
 
 export function clearE2ERateLimits() {
@@ -329,6 +378,15 @@ async function updateOptionValue(
   await assertApiOk(response);
 }
 
+async function forceDisableGlobalPassThrough(api: APIRequestContext, user: E2EUser) {
+  const original = getDbOptionValue(PASS_THROUGH_OPTION_KEY);
+  await updateOptionValue(api, user, PASS_THROUGH_OPTION_KEY, 'false');
+  return {
+    originalPassThroughRequestEnabled: original.value,
+    originalPassThroughRequestEnabledExists: original.exists,
+  };
+}
+
 async function ensureImageModelPrices(api: APIRequestContext, user: E2EUser) {
   const originalModelPrice = await getOptionValue(api, user, 'ModelPrice');
   const priceMap =
@@ -355,7 +413,7 @@ async function assertModelMetadata(api: APIRequestContext, user: E2EUser) {
   expect(gptImage2?.endpoint_types).toContain('image-generation');
   expect(gptImage2?.image_generation_mode).toBe('gpt_image_v2');
   expect(gptImage2?.image_parameters).toMatchObject({
-    response_format: true,
+    response_format: false,
     supports_edits: true,
     n_max: 10,
   });
@@ -398,18 +456,47 @@ export async function prepareFixtures(): Promise<E2EFixtureState> {
   const createdUserByDb = await createE2EUserIfMissing();
   const api = await createApiContext();
   const user = getFixtureUserFromDb() || (await login(api));
-  await deleteE2EChannels(api, user);
-  const originalModelPrice = await ensureImageModelPrices(api, user);
-  const channelId = await createMockChannel(api, user);
-  await assertChannelHealthy(api, user, channelId);
-  await assertModelMetadata(api, user);
-  await api.dispose();
-  return { user, channelId, createdUserByDb, originalModelPrice };
+  let passThroughState:
+    | Pick<
+        E2EFixtureState,
+        | 'originalPassThroughRequestEnabled'
+        | 'originalPassThroughRequestEnabledExists'
+      >
+    | undefined;
+  try {
+    await deleteE2EChannels(api, user);
+    passThroughState = await forceDisableGlobalPassThrough(api, user);
+    const originalModelPrice = await ensureImageModelPrices(api, user);
+    const channelId = await createMockChannel(api, user);
+    await assertChannelHealthy(api, user, channelId);
+    await assertModelMetadata(api, user);
+    return {
+      user,
+      channelId,
+      createdUserByDb,
+      originalModelPrice,
+      ...passThroughState,
+    };
+  } catch (error) {
+    if (passThroughState) {
+      await restoreGlobalPassThrough(
+        api,
+        user,
+        passThroughState.originalPassThroughRequestEnabled,
+        passThroughState.originalPassThroughRequestEnabledExists,
+      ).catch(() => undefined);
+    }
+    throw error;
+  } finally {
+    await api.dispose();
+  }
 }
 
 export async function cleanupFixtures(
   user?: E2EUser,
   originalModelPrice?: string | null,
+  originalPassThroughRequestEnabled?: string | null,
+  originalPassThroughRequestEnabledExists = true,
 ) {
   if (user) {
     const api = await createApiContext(authHeaders(user));
@@ -422,6 +509,12 @@ export async function cleanupFixtures(
         () => undefined,
       );
     }
+    await restoreGlobalPassThrough(
+      api,
+      user,
+      originalPassThroughRequestEnabled,
+      originalPassThroughRequestEnabledExists,
+    ).catch(() => undefined);
     await api.dispose();
   }
   if (!process.env.E2E_ROOT_USER && !process.env.E2E_ROOT_PASS) {

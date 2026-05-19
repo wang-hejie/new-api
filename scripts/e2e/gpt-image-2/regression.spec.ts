@@ -14,7 +14,12 @@ test.describe.serial('playground regression coverage', () => {
   });
 
   test.afterAll(async () => {
-    await cleanupFixtures(state?.user, state?.originalModelPrice);
+    await cleanupFixtures(
+      state?.user,
+      state?.originalModelPrice,
+      state?.originalPassThroughRequestEnabled,
+      state?.originalPassThroughRequestEnabledExists,
+    );
   });
 
   test('gpt-4o still uses chat completions', async ({ page }) => {

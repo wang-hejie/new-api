@@ -79,12 +79,7 @@ mock.module('@douyinfe/semi-ui', () => ({
     warning: () => {},
   },
   SideSheet: ({ children, visible, title }) =>
-    React.createElement(
-      'aside',
-      { 'data-visible': visible },
-      title,
-      children,
-    ),
+    React.createElement('aside', { 'data-visible': visible }, title, children),
   Skeleton: Object.assign(() => React.createElement('div', null, 'skeleton'), {
     Paragraph: ({ rows }) =>
       React.createElement('div', { 'data-skeleton-rows': rows }),
@@ -101,7 +96,6 @@ mock.module('lucide-react', () => ({
   Layers: () => React.createElement('i', null),
   SlidersHorizontal: () => React.createElement('i', null),
   FileOutput: () => React.createElement('i', null),
-  Sparkles: () => React.createElement('i', null),
   Repeat2: () => React.createElement('i', null),
   ImagePlus: () => React.createElement('i', null),
   Trash2: () => React.createElement('i', null),
@@ -237,5 +231,64 @@ describe('ImageParameterControl', () => {
     expect(html).toContain('图像质量');
     expect(html).toContain('图像数量');
     expect(html).toContain('返回格式');
+  });
+
+  test('hides reference usage globally in edit mode', async () => {
+    const { default: ImageParameterControl } = await import(
+      './ImageParameterControl'
+    );
+
+    const html = renderToStaticMarkup(
+      <ImageParameterControl
+        inputs={{
+          model: 'flux-pro',
+          prompt_size: '1024x1024',
+          prompt_quality: 'auto',
+          prompt_n: 2,
+          prompt_response_format: 'url',
+          imageRequestMode: 'edit',
+          imageParameters: {
+            size: true,
+            quality: true,
+            response_format: true,
+            supports_edits: true,
+          },
+        }}
+        onInputChange={() => {}}
+      />,
+    );
+
+    expect(html).not.toContain('参考用途');
+    expect(html).toContain('返回格式');
+  });
+
+  test('hides response format for gpt-image-2', async () => {
+    const { default: ImageParameterControl } = await import(
+      './ImageParameterControl'
+    );
+
+    const html = renderToStaticMarkup(
+      <ImageParameterControl
+        inputs={{
+          model: 'gpt-image-2',
+          prompt_size: '1024x1024',
+          prompt_quality: 'auto',
+          prompt_n: 1,
+          prompt_response_format: 'url',
+          imageRequestMode: 'edit',
+          imageParameters: {
+            size: true,
+            quality: true,
+            response_format: false,
+            n_max: 10,
+            supports_edits: true,
+          },
+        }}
+        onInputChange={() => {}}
+      />,
+    );
+
+    expect(html).not.toContain('参考用途');
+    expect(html).not.toContain('返回格式');
   });
 });

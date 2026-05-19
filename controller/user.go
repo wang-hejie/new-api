@@ -580,7 +580,7 @@ func getPlaygroundImageGenerationMetadata(modelName string) (string, *Playground
 		return "gpt_image_v2", &PlaygroundImageParameter{
 			Size:           true,
 			Quality:        true,
-			ResponseFormat: true,
+			ResponseFormat: false,
 			NMax:           10,
 			SupportsEdits:  true,
 		}

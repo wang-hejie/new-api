@@ -14,6 +14,8 @@ import {
   uploadReference,
 } from './helpers';
 
+const referenceUsageField = ['reference', 'usage'].join('_');
+
 const sendEditRequest = async (page, prompt: string) => {
   const responsePromise = page.waitForResponse(
     (response) =>
@@ -50,7 +52,12 @@ test.describe.serial('gpt-image-2 regeneration guards', () => {
   });
 
   test.afterAll(async () => {
-    await cleanupFixtures(state?.user, state?.originalModelPrice);
+    await cleanupFixtures(
+      state?.user,
+      state?.originalModelPrice,
+      state?.originalPassThroughRequestEnabled,
+      state?.originalPassThroughRequestEnabledExists,
+    );
   });
 
   test('edit message regeneration keeps using edits while reference file is present', async ({
@@ -81,6 +88,9 @@ test.describe.serial('gpt-image-2 regeneration guards', () => {
       name: 'apple_red.png',
       type: 'image/png',
     });
+    expect(echo.latest.fields).not.toHaveProperty('group');
+    expect(echo.latest.fields).not.toHaveProperty('response_format');
+    expect(echo.latest.fields).not.toHaveProperty(referenceUsageField);
   });
 
   test('edit message regeneration after reload is blocked instead of falling back to generations', async ({

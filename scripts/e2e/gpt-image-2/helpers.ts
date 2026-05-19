@@ -54,7 +54,6 @@ export type PlaygroundConfigOptions = {
   quality?: string;
   n?: number;
   responseFormat?: string;
-  referenceUsage?: 'subject' | 'composition' | 'style';
   showDebugPanel?: boolean;
   customRequestMode?: boolean;
   customRequestBody?: string;
@@ -78,7 +77,6 @@ export function buildPlaygroundConfig(options: PlaygroundConfigOptions = {}) {
       prompt_quality: options.quality || 'auto',
       prompt_n: options.n || 1,
       prompt_response_format: options.responseFormat || '',
-      prompt_reference_usage: options.referenceUsage || 'subject',
       image_request_mode: options.imageRequestMode || 'generation',
     },
     parameterEnabled: DEFAULT_PARAMETER_ENABLED,

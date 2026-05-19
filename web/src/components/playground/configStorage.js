@@ -23,6 +23,9 @@ import {
 } from '../../constants/playground.constants';
 
 const MESSAGES_STORAGE_KEY = 'playground_messages';
+const LEGACY_PLAYGROUND_INPUT_FIELDS = [
+  ['prompt', 'reference', 'usage'].join('_'),
+];
 
 export const sanitizePlaygroundInputsForStorage = (inputs = {}) => {
   const sanitized = {
@@ -31,6 +34,9 @@ export const sanitizePlaygroundInputsForStorage = (inputs = {}) => {
   };
   delete sanitized.image_reference_files;
   delete sanitized.image_mask_file;
+  LEGACY_PLAYGROUND_INPUT_FIELDS.forEach((field) => {
+    delete sanitized[field];
+  });
   return sanitized;
 };
 

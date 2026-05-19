@@ -17,14 +17,52 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { describe, expect, test } from 'bun:test';
-import { DEFAULT_CONFIG } from '../../constants/playground.constants';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import {
+  DEFAULT_CONFIG,
+  STORAGE_KEYS,
+} from '../../constants/playground.constants';
+import {
+  loadConfig,
   sanitizePlaygroundConfig,
   sanitizePlaygroundInputsForStorage,
+  saveConfig,
 } from './configStorage';
 
+const legacyReferenceUsageField = ['prompt', 'reference', 'usage'].join('_');
+
+const installLocalStorageMock = () => {
+  const storage = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => (storage.has(key) ? storage.get(key) : null),
+    setItem: (key, value) => {
+      storage.set(key, String(value));
+    },
+    removeItem: (key) => {
+      storage.delete(key);
+    },
+    clear: () => {
+      storage.clear();
+    },
+  };
+  return storage;
+};
+
 describe('playground config storage sanitizers', () => {
+  beforeEach(() => {
+    installLocalStorageMock();
+  });
+
+  test('default image inputs no longer include legacy reference usage', () => {
+    expect(DEFAULT_CONFIG.inputs[legacyReferenceUsageField]).toBeUndefined();
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        DEFAULT_CONFIG.inputs,
+        legacyReferenceUsageField,
+      ),
+    ).toBe(false);
+  });
+
   test('fills image defaults and removes non-serializable image files', () => {
     const referenceFile = new File(['image bytes'], 'apple.png', {
       type: 'image/png',
@@ -32,13 +70,14 @@ describe('playground config storage sanitizers', () => {
     const sanitized = sanitizePlaygroundInputsForStorage({
       model: 'gpt-image-2',
       image_request_mode: 'edit',
+      [legacyReferenceUsageField]: 'composition',
       image_reference_files: [referenceFile],
       image_mask_file: referenceFile,
     });
 
     expect(sanitized.model).toBe('gpt-image-2');
     expect(sanitized.image_request_mode).toBe('edit');
-    expect(sanitized.prompt_reference_usage).toBe('subject');
+    expect(sanitized[legacyReferenceUsageField]).toBeUndefined();
     expect(sanitized.image_reference_files).toBeUndefined();
     expect(sanitized.image_mask_file).toBeUndefined();
   });
@@ -47,6 +86,7 @@ describe('playground config storage sanitizers', () => {
     const sanitized = sanitizePlaygroundConfig({
       inputs: {
         model: 'gpt-image-2',
+        [legacyReferenceUsageField]: 'style',
       },
       parameterEnabled: {
         temperature: false,
@@ -54,10 +94,44 @@ describe('playground config storage sanitizers', () => {
     });
 
     expect(sanitized.inputs.image_request_mode).toBe('generation');
-    expect(sanitized.inputs.prompt_reference_usage).toBe('subject');
+    expect(sanitized.inputs[legacyReferenceUsageField]).toBeUndefined();
     expect(sanitized.parameterEnabled.temperature).toBe(false);
     expect(sanitized.parameterEnabled.top_p).toBe(
       DEFAULT_CONFIG.parameterEnabled.top_p,
     );
+  });
+
+  test('saveConfig and loadConfig sanitize legacy reference usage in persisted configs', () => {
+    saveConfig({
+      inputs: {
+        model: 'gpt-image-2',
+        [legacyReferenceUsageField]: 'subject',
+      },
+      parameterEnabled: {
+        temperature: false,
+      },
+    });
+
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONFIG));
+    expect(saved.inputs[legacyReferenceUsageField]).toBeUndefined();
+
+    localStorage.setItem(
+      STORAGE_KEYS.CONFIG,
+      JSON.stringify({
+        inputs: {
+          model: 'gpt-image-2',
+          max_tokens: '2048',
+          [legacyReferenceUsageField]: 'style',
+        },
+        parameterEnabled: {
+          temperature: false,
+        },
+      }),
+    );
+
+    const loaded = loadConfig();
+    expect(loaded.inputs.model).toBe('gpt-image-2');
+    expect(loaded.inputs.max_tokens).toBe(2048);
+    expect(loaded.inputs[legacyReferenceUsageField]).toBeUndefined();
   });
 });

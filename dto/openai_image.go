@@ -18,7 +18,6 @@ type ImageRequest struct {
 	Size              string          `json:"size,omitempty"`
 	Quality           string          `json:"quality,omitempty"`
 	ResponseFormat    string          `json:"response_format,omitempty"`
-	ReferenceUsage    *string         `json:"reference_usage,omitempty" form:"reference_usage"`
 	Style             json.RawMessage `json:"style,omitempty"`
 	User              json.RawMessage `json:"user,omitempty"`
 	ExtraFields       json.RawMessage `json:"extra_fields,omitempty"`

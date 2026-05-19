@@ -365,7 +365,6 @@ describe('useApiRequest endpoint dispatch', () => {
     });
     formData.append('model', 'gpt-image-2');
     formData.append('prompt', 'change the apple color to bright green');
-    formData.append('reference_usage', 'subject');
     formData.append('image', file, file.name);
 
     const payload = {
@@ -375,7 +374,6 @@ describe('useApiRequest endpoint dispatch', () => {
         fields: {
           model: 'gpt-image-2',
           prompt: 'change the apple color to bright green',
-          reference_usage: 'subject',
         },
         files: {
           image: [{ name: 'apple.png', size: 11, type: 'image/png' }],

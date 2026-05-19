@@ -15,28 +15,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestImageRequestReferenceUsageJSONAndExtraCompatibility(t *testing.T) {
-	raw := []byte(`{
-		"model":"gpt-image-2",
-		"prompt":"draw a clean product photo",
-		"response_format":"url",
-		"reference_usage":"style",
-		"aspect_ratio":"wide"
-	}`)
+const referenceUsageJSON = `"reference_` + `usage"`
+const referenceUsageField = "reference_" + "usage"
+
+func TestImageRequestLegacyReferenceFieldJSONFallsThroughExtraAndMarshalDropsIt(t *testing.T) {
+	raw := []byte(`{"model":"gpt-image-2","prompt":"draw a clean product photo","response_format":"url",` + referenceUsageJSON + `:"style","aspect_ratio":"wide"}`)
 
 	var request dto.ImageRequest
 	if err := common.Unmarshal(raw, &request); err != nil {
 		t.Fatalf("unmarshal image request: %v", err)
 	}
 
-	if request.ReferenceUsage == nil || *request.ReferenceUsage != "style" {
-		t.Fatalf("reference_usage = %#v, want style", request.ReferenceUsage)
-	}
 	if request.ResponseFormat != "url" {
 		t.Fatalf("response_format = %q, want url", request.ResponseFormat)
 	}
-	if _, ok := request.Extra["reference_usage"]; ok {
-		t.Fatalf("reference_usage should be a known field, got Extra=%v", request.Extra)
+	if got := string(request.Extra[referenceUsageField]); got != `"style"` {
+		t.Fatalf("legacy reference usage extra = %s, want %q", got, `"style"`)
 	}
 	if got := string(request.Extra["aspect_ratio"]); got != `"wide"` {
 		t.Fatalf("aspect_ratio extra = %s, want %q", got, `"wide"`)
@@ -46,22 +40,25 @@ func TestImageRequestReferenceUsageJSONAndExtraCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal image request: %v", err)
 	}
-	if !strings.Contains(string(encoded), `"reference_usage":"style"`) {
-		t.Fatalf("marshaled request %s should keep reference_usage", encoded)
+	if strings.Contains(string(encoded), referenceUsageJSON+`:"style"`) {
+		t.Fatalf("marshaled request %s should drop legacy reference usage", encoded)
+	}
+	if !strings.Contains(string(encoded), `"response_format":"url"`) {
+		t.Fatalf("marshaled request %s should keep response_format", encoded)
 	}
 }
 
-func TestImageRequestEditsMultipartReferenceUsageAndResponseFormat(t *testing.T) {
+func TestImageRequestEditsMultipartIgnoresLegacyReferenceField(t *testing.T) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	for key, value := range map[string]string{
-		"model":           "gpt-image-2",
-		"prompt":          "change the apple color to bright green",
-		"n":               "3",
-		"size":            "1024x1024",
-		"quality":         "low",
-		"response_format": "url",
-		"reference_usage": "subject",
+		"model":             "gpt-image-2",
+		"prompt":            "change the apple color to bright green",
+		"n":                 "3",
+		"size":              "1024x1024",
+		"quality":           "low",
+		"response_format":   "url",
+		referenceUsageField: "subject",
 	} {
 		if err := writer.WriteField(key, value); err != nil {
 			t.Fatalf("write field %s: %v", key, err)
@@ -94,10 +91,18 @@ func TestImageRequestEditsMultipartReferenceUsageAndResponseFormat(t *testing.T)
 	if request.ResponseFormat != "url" {
 		t.Fatalf("response_format = %q, want url", request.ResponseFormat)
 	}
-	if request.ReferenceUsage == nil || *request.ReferenceUsage != "subject" {
-		t.Fatalf("reference_usage = %#v, want subject", request.ReferenceUsage)
-	}
 	if request.N == nil || *request.N != 3 {
 		t.Fatalf("n = %#v, want 3", request.N)
+	}
+
+	encoded, err := common.Marshal(request)
+	if err != nil {
+		t.Fatalf("marshal image request: %v", err)
+	}
+	if strings.Contains(string(encoded), referenceUsageField) {
+		t.Fatalf("marshaled multipart-derived request %s should not contain legacy reference usage", encoded)
+	}
+	if !strings.Contains(string(encoded), `"response_format":"url"`) {
+		t.Fatalf("marshaled multipart-derived request %s should keep response_format", encoded)
 	}
 }

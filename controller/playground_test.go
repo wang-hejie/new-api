@@ -168,7 +168,7 @@ func TestPlaygroundGPTImageMetadata(t *testing.T) {
 		{
 			model:              "gpt-image-2",
 			wantMode:           "gpt_image_v2",
-			wantResponseFormat: true,
+			wantResponseFormat: false,
 			wantSupportsEdits:  true,
 			wantMetadata:       true,
 		},
@@ -277,7 +277,7 @@ func TestPlaygroundModelInfoGPTImageJSONShape(t *testing.T) {
 	bodyText := string(body)
 	for _, want := range []string{
 		`"image_generation_mode":"gpt_image_v2"`,
-		`"response_format":true`,
+		`"response_format":false`,
 		`"supports_edits":true`,
 		`"n_max":10`,
 	} {
@@ -287,5 +287,8 @@ func TestPlaygroundModelInfoGPTImageJSONShape(t *testing.T) {
 	}
 	if strings.Contains(bodyText, "aspect_ratio") {
 		t.Fatalf("JSON %s should not contain aspect_ratio capability", bodyText)
+	}
+	if strings.Contains(bodyText, `"response_format":true`) {
+		t.Fatalf("JSON %s should not expose response_format=true for gpt-image-2", bodyText)
 	}
 }

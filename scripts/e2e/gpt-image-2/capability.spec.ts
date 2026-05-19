@@ -14,14 +14,20 @@ test.describe.serial('playground image capability metadata', () => {
   });
 
   test.afterAll(async () => {
-    await cleanupFixtures(state?.user, state?.originalModelPrice);
+    await cleanupFixtures(
+      state?.user,
+      state?.originalModelPrice,
+      state?.originalPassThroughRequestEnabled,
+      state?.originalPassThroughRequestEnabledExists,
+    );
   });
 
-  test('gpt-image-2 exposes edit mode and response_format', async ({ page }) => {
+  test('gpt-image-2 exposes edit mode and hides unsupported controls', async ({ page }) => {
     await openPlayground(page, state.user, { model: 'gpt-image-2' });
     await expect(page.getByText('请求方式')).toBeVisible();
     await expect(page.getByText('图生图')).toBeVisible();
-    await expect(page.getByText('返回格式')).toBeVisible();
+    await expect(page.getByText('返回格式')).toHaveCount(0);
+    await expect(page.getByText('参考用途')).toHaveCount(0);
     await expect(page.getByText('图像数量')).toBeVisible();
 
     const selectedStyle = await radioCard(page, '文生图').evaluate((node) => {

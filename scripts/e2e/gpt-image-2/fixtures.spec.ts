@@ -9,6 +9,11 @@ test('fixtures prepare mock channel and metadata', async () => {
     const echo = await mockEcho();
     expect(echo.ok).toBe(true);
   } finally {
-    await cleanupFixtures(state.user, state.originalModelPrice);
+    await cleanupFixtures(
+      state.user,
+      state.originalModelPrice,
+      state.originalPassThroughRequestEnabled,
+      state.originalPassThroughRequestEnabledExists,
+    );
   }
 });

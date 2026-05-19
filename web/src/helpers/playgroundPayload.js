@@ -20,7 +20,6 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   API_ENDPOINTS,
   ENDPOINT_TYPES,
-  IMAGE_REFERENCE_USAGE,
   IMAGE_REQUEST_MODES,
   MESSAGE_ROLES,
 } from '../constants/playground.constants';
@@ -46,6 +45,9 @@ export const getApiEndpointByEndpointType = (endpointType) =>
 
 export const isGptImageModel = (model = '') =>
   model.toLowerCase().startsWith('gpt-image-');
+
+export const isGptImage2Model = (model = '') =>
+  model.toLowerCase() === 'gpt-image-2';
 
 export const isDallE3Model = (model = '') => model.toLowerCase() === 'dall-e-3';
 
@@ -193,17 +195,6 @@ const sanitizeImageResponseFormat = (
   return '';
 };
 
-const sanitizeImageReferenceUsage = (referenceUsage = '') => {
-  const normalizedReferenceUsage =
-    typeof referenceUsage === 'string' ? referenceUsage.trim() : '';
-
-  if (Object.values(IMAGE_REFERENCE_USAGE).includes(normalizedReferenceUsage)) {
-    return normalizedReferenceUsage;
-  }
-
-  return IMAGE_REFERENCE_USAGE.SUBJECT;
-};
-
 const getTextContent = (message) => {
   if (!message || !message.content) return '';
 
@@ -336,7 +327,7 @@ export const buildImageGenerationPayload = (messages, inputs) => {
     payload.quality = quality;
   }
 
-  if (responseFormat) {
+  if (responseFormat && !isGptImage2Model(inputs.model)) {
     payload.response_format = responseFormat;
   }
 
@@ -377,15 +368,10 @@ export const buildImageEditPayload = (messages, inputs) => {
     inputs.prompt_quality,
     imageParameters,
   );
-  const responseFormat = sanitizeImageResponseFormat(
-    inputs.model,
-    inputs.prompt_response_format,
-    imageParameters,
+  const imageCount = sanitizeImageCount(
+    inputs.prompt_n,
+    imageParameters?.n_max,
   );
-  const referenceUsage = sanitizeImageReferenceUsage(
-    inputs.prompt_reference_usage,
-  );
-  const imageCount = sanitizeImageCount(inputs.prompt_n, imageParameters?.n_max);
   const formData = new FormData();
 
   formData.append('model', inputs.model);
@@ -397,12 +383,6 @@ export const buildImageEditPayload = (messages, inputs) => {
   }
   if (quality) {
     formData.append('quality', quality);
-  }
-  if (responseFormat) {
-    formData.append('response_format', responseFormat);
-  }
-  if (referenceUsage) {
-    formData.append('reference_usage', referenceUsage);
   }
   referenceFiles.forEach((file) => {
     formData.append('image', file, file.name);
@@ -419,8 +399,6 @@ export const buildImageEditPayload = (messages, inputs) => {
         n: imageCount,
         size: size || undefined,
         quality: quality || undefined,
-        response_format: responseFormat || undefined,
-        reference_usage: referenceUsage || undefined,
       },
       files: {
         image: referenceFiles.map(getFileSnapshot),

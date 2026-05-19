@@ -14,7 +14,12 @@ test.describe.serial('gpt-image-2 guards', () => {
   });
 
   test.afterAll(async () => {
-    await cleanupFixtures(state?.user, state?.originalModelPrice);
+    await cleanupFixtures(
+      state?.user,
+      state?.originalModelPrice,
+      state?.originalPassThroughRequestEnabled,
+      state?.originalPassThroughRequestEnabledExists,
+    );
   });
 
   test('edit mode without reference disables send and prevents request', async ({
