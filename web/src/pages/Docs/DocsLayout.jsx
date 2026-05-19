@@ -93,11 +93,14 @@ const DocsLayout = () => {
     }
   }, [firstDoc?.slug, loading, navigate, slug]);
 
-  const handleSelectDoc = useCallback((docSlug) => {
-    if (!docSlug) return;
-    navigate(`/docs/${docSlug}`);
-    setDrawerVisible(false);
-  }, [navigate]);
+  const handleSelectDoc = useCallback(
+    (docSlug) => {
+      if (!docSlug) return;
+      navigate(`/docs/${docSlug}`);
+      setDrawerVisible(false);
+    },
+    [navigate],
+  );
 
   const handleDocMeta = useCallback((meta) => {
     setDocMeta({
@@ -116,11 +119,7 @@ const DocsLayout = () => {
   }, [slug]);
 
   const sidebar = (
-    <DocsSidebar
-      docs={docs}
-      activeSlug={slug}
-      onSelectDoc={handleSelectDoc}
-    />
+    <DocsSidebar docs={docs} activeSlug={slug} onSelectDoc={handleSelectDoc} />
   );
 
   const pagination = (

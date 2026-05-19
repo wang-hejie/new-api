@@ -33,7 +33,8 @@ mock.module('@douyinfe/semi-ui', () => ({
     success: () => {},
     error: () => {},
   },
-  Tooltip: ({ children }) => React.createElement(React.Fragment, null, children),
+  Tooltip: ({ children }) =>
+    React.createElement(React.Fragment, null, children),
 }));
 
 mock.module('@douyinfe/semi-icons', () => ({

@@ -117,9 +117,10 @@ const enrichExample = (block, kind) => {
     value: block.value || '',
     index: block.index || 0,
     meta,
-    source: isExplicitRequest(block) || isExplicitResponse(block)
-      ? 'meta'
-      : 'heuristic',
+    source:
+      isExplicitRequest(block) || isExplicitResponse(block)
+        ? 'meta'
+        : 'heuristic',
   };
 };
 
@@ -157,7 +158,9 @@ export function selectDocsCodeExamples(codeBlocks = []) {
           !requestBlocks.includes(block),
       );
 
-  const requests = requestBlocks.map((block) => enrichExample(block, 'request'));
+  const requests = requestBlocks.map((block) =>
+    enrichExample(block, 'request'),
+  );
   const responses = responseBlocks.map((block) =>
     enrichExample(block, 'response'),
   );

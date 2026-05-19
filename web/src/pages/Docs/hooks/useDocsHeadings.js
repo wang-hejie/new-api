@@ -34,7 +34,11 @@ export function normalizeDocsHeadings(headings = []) {
       text: heading.text,
       id:
         heading.id ||
-        createUniqueDocsHeadingId(heading.text, usedIds, heading.idPrefix || ''),
+        createUniqueDocsHeadingId(
+          heading.text,
+          usedIds,
+          heading.idPrefix || '',
+        ),
     }));
 }
 

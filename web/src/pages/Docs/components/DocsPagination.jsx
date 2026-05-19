@@ -41,7 +41,9 @@ const PaginationCard = ({ doc, direction, onSelectDoc }) => {
         {!isNext && <IconChevronLeft size='small' />} {doc.title}{' '}
         {isNext && <IconChevronRight size='small' />}
       </div>
-      <div className='docs-pagination-category'>{doc.category || t('通用')}</div>
+      <div className='docs-pagination-category'>
+        {doc.category || t('通用')}
+      </div>
     </button>
   );
 };

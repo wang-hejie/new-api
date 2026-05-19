@@ -26,10 +26,7 @@ export const normalizeImageRequestMode = ({
   imageRequestMode,
   supportsEdits,
 } = {}) => {
-  if (
-    supportsEdits === true &&
-    imageRequestMode === IMAGE_REQUEST_MODES.EDIT
-  ) {
+  if (supportsEdits === true && imageRequestMode === IMAGE_REQUEST_MODES.EDIT) {
     return IMAGE_REQUEST_MODES.EDIT;
   }
 

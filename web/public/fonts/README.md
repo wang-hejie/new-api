@@ -5,6 +5,7 @@
 ## 来源
 
 - `Inter-*.woff2`
+
   - 来源包：`@fontsource/inter@5.2.8`
   - 文件来源：`files/inter-latin-{400,500,600,700}-normal.woff2`
   - 上游项目：https://github.com/rsms/inter

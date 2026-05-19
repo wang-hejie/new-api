@@ -52,9 +52,7 @@ const DocsCodeExampleCard = ({ label, examples = [] }) => {
             <span className='docs-code-card-pill'>{activeExample.lang}</span>
           )}
           {activeExample.status && (
-            <span className='docs-code-card-pill'>
-              {activeExample.status}
-            </span>
+            <span className='docs-code-card-pill'>{activeExample.status}</span>
           )}
         </div>
         <Tooltip content={t('复制代码')}>

@@ -512,9 +512,9 @@ function createDocsMarkdownComponents() {
     table: (props) => {
       const { node, ...rest } = props;
       return (
-      <div className='docs-table-wrap'>
-        <table {...rest} />
-      </div>
+        <div className='docs-table-wrap'>
+          <table {...rest} />
+        </div>
       );
     },
     th: (props) => {
@@ -568,7 +568,9 @@ function _MarkdownContent(props) {
   const remarkPluginsBase = useMemo(() => {
     const base = [RemarkMath, RemarkGfm, RemarkBreaks];
     if (variant === 'docs') {
-      base.push(createDocsMetaPlugin({ metaRef: docsMetaRef, headingIdPrefix }));
+      base.push(
+        createDocsMetaPlugin({ metaRef: docsMetaRef, headingIdPrefix }),
+      );
     }
     return base;
   }, [headingIdPrefix, variant]);

@@ -21,6 +21,14 @@ import (
 
 func init() {
 	gin.SetMode(gin.TestMode)
+	// 在测试包初始化阶段为 constant.StreamingTimeout 提供一个合法默认值，
+	// 避免多个 t.Parallel 测试通过 setupStreamTest 的 save/restore 模式
+	// 出现竞态：最早注册的 cleanup 会把全局变量还原成 Go 零值 0，
+	// 而 StreamScannerHandler 中的 time.NewTicker 不接受非正间隔，
+	// 导致 panic: non-positive interval for NewTicker。
+	// 将初始值固定为 30s 后，所有并行测试的 save/restore 都退化为 30->30
+	// 的幂等写入，与不并行的超时用例自带的 2s 覆盖互不干扰。
+	constant.StreamingTimeout = 30
 }
 
 func setupStreamTest(t *testing.T, body io.Reader) (*gin.Context, *http.Response, *relaycommon.RelayInfo) {

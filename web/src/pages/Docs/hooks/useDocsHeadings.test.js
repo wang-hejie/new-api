@@ -18,10 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { describe, expect, test } from 'bun:test';
-import {
-  normalizeDocsHeadings,
-  slugifyDocsHeading,
-} from './useDocsHeadings';
+import { normalizeDocsHeadings, slugifyDocsHeading } from './useDocsHeadings';
 
 describe('docs heading helpers', () => {
   test('slugify 保留中文和 Unicode 标题可读性', () => {

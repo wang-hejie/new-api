@@ -689,7 +689,10 @@ export const useApiRequest = (
       endpoint = undefined,
     ) => {
       if (endpointType === ENDPOINT_TYPES.IMAGE_GENERATION) {
-        handleImageRequest(payload, endpoint || API_ENDPOINTS.IMAGES_GENERATIONS);
+        handleImageRequest(
+          payload,
+          endpoint || API_ENDPOINTS.IMAGES_GENERATIONS,
+        );
         return;
       }
 

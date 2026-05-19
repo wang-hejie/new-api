@@ -210,14 +210,13 @@ const SettingsPanel = ({
                 disabled={customRequestMode}
               />
             )}
-            {customRequestMode &&
-              isImageEditMode && (
-                <Typography.Text className='text-xs text-orange-600'>
-                  {t(
-                    '自定义请求体模式不支持图生图，请关闭自定义请求体或切换到文生图',
-                  )}
-                </Typography.Text>
-              )}
+            {customRequestMode && isImageEditMode && (
+              <Typography.Text className='text-xs text-orange-600'>
+                {t(
+                  '自定义请求体模式不支持图生图，请关闭自定义请求体或切换到文生图',
+                )}
+              </Typography.Text>
+            )}
             {isImageEditMode && (
               <ImageReferenceUploader
                 referenceFiles={imagePanelInputs.image_reference_files}

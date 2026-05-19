@@ -78,12 +78,7 @@ mock.module('@douyinfe/semi-ui', () => ({
       React.createElement('div', { 'data-skeleton-rows': rows }),
   }),
   SideSheet: ({ children, visible, title }) =>
-    React.createElement(
-      'aside',
-      { 'data-visible': visible },
-      title,
-      children,
-    ),
+    React.createElement('aside', { 'data-visible': visible }, title, children),
   Toast: {
     success: () => {},
     warning: () => {},

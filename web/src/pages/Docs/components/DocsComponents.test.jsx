@@ -44,7 +44,8 @@ mock.module('@douyinfe/semi-ui', () => ({
     success: (message) => toasts.push({ type: 'success', message }),
     error: (message) => toasts.push({ type: 'error', message }),
   },
-  Tooltip: ({ children }) => React.createElement(React.Fragment, null, children),
+  Tooltip: ({ children }) =>
+    React.createElement(React.Fragment, null, children),
 }));
 
 mock.module('@douyinfe/semi-icons', () => ({
@@ -177,7 +178,9 @@ describe('Docs components', () => {
     const { default: DocsAside } = await import('./DocsAside');
 
     const emptyHtml = renderToStaticMarkup(
-      <DocsAside examples={{ hasExamples: false, requests: [], responses: [] }} />,
+      <DocsAside
+        examples={{ hasExamples: false, requests: [], responses: [] }}
+      />,
     );
     expect(emptyHtml).not.toContain('docs-toc');
     expect(emptyHtml).not.toContain(REQUEST_EXAMPLE_LABEL);

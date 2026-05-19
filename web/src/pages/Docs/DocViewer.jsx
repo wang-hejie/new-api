@@ -139,7 +139,9 @@ const DocViewer = ({ slug, onMeta, onDocLoaded, footer }) => {
       <div className='docs-main-inner'>
         <Empty
           title={error || t('文档不存在')}
-          image={<IllustrationConstruction style={{ width: 150, height: 150 }} />}
+          image={
+            <IllustrationConstruction style={{ width: 150, height: 150 }} />
+          }
           darkModeImage={
             <IllustrationConstructionDark style={{ width: 150, height: 150 }} />
           }
