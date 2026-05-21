@@ -1,6 +1,8 @@
 package gemini
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -25,9 +27,11 @@ type Adaptor struct {
 }
 
 func isGeminiNativeImageGeneration(info *relaycommon.RelayInfo) bool {
-	return info != nil &&
-		info.RelayMode == constant.RelayModeImagesGenerations &&
-		common.IsGeminiNativeImageModel(info.UpstreamModelName)
+	if info == nil || !common.IsGeminiNativeImageModel(info.UpstreamModelName) {
+		return false
+	}
+	return info.RelayMode == constant.RelayModeImagesGenerations ||
+		info.RelayMode == constant.RelayModeImagesEdits
 }
 
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
@@ -73,6 +77,9 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		return a.convertImagenRequest(request), nil
 	}
 	if isGeminiNativeImageGeneration(info) {
+		if info.RelayMode == constant.RelayModeImagesEdits {
+			return a.convertNativeImageEditRequest(c, request)
+		}
 		return a.convertNativeImageChatRequest(request)
 	}
 	return nil, errors.New("not supported model for image generation, only imagen-* and gemini-*-image-* models are supported")
@@ -140,9 +147,77 @@ func (a *Adaptor) convertImagenRequest(request dto.ImageRequest) *dto.GeminiImag
 	return &geminiRequest
 }
 
+var geminiAspectRatioWhitelist = map[string]struct{}{
+	"1:1":  {},
+	"2:3":  {},
+	"3:2":  {},
+	"3:4":  {},
+	"4:3":  {},
+	"4:5":  {},
+	"5:4":  {},
+	"9:16": {},
+	"16:9": {},
+	"21:9": {},
+	"1:4":  {},
+	"4:1":  {},
+	"1:8":  {},
+	"8:1":  {},
+}
+
+const maxGeminiInlineImageSize = 10 * 1024 * 1024
+
+var geminiSupportedInlineMimeTypes = map[string]struct{}{
+	"image/png":  {},
+	"image/jpeg": {},
+	"image/webp": {},
+}
+
+func buildGeminiImageConfig(request dto.ImageRequest) (json.RawMessage, error) {
+	cfg := map[string]any{}
+
+	aspect := strings.TrimSpace(request.Size)
+	if aspect != "" {
+		if _, ok := geminiAspectRatioWhitelist[aspect]; ok {
+			cfg["aspectRatio"] = aspect
+		}
+	}
+
+	if imageSize := normalizeGeminiImageSize(request.Quality); imageSize != "" {
+		cfg["imageSize"] = imageSize
+	}
+
+	if len(cfg) == 0 {
+		return nil, nil
+	}
+	return common.Marshal(cfg)
+}
+
+func normalizeGeminiImageSize(quality string) string {
+	switch strings.ToLower(strings.TrimSpace(quality)) {
+	case "1k", "512", "low", "standard", "auto", "medium":
+		return "1K"
+	case "2k", "hd", "high":
+		return "2K"
+	case "4k":
+		return "4K"
+	}
+	return ""
+}
+
 func (a *Adaptor) convertNativeImageChatRequest(request dto.ImageRequest) (*dto.GeminiChatRequest, error) {
 	if strings.TrimSpace(request.Prompt) == "" {
 		return nil, errors.New("prompt is required for image generation")
+	}
+
+	generationConfig := dto.GeminiChatGenerationConfig{
+		ResponseModalities: []string{"TEXT", "IMAGE"},
+	}
+	imageConfig, err := buildGeminiImageConfig(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal gemini image config: %w", err)
+	}
+	if len(imageConfig) > 0 {
+		generationConfig.ImageConfig = imageConfig
 	}
 
 	return &dto.GeminiChatRequest{
@@ -154,10 +229,107 @@ func (a *Adaptor) convertNativeImageChatRequest(request dto.ImageRequest) (*dto.
 				},
 			},
 		},
-		GenerationConfig: dto.GeminiChatGenerationConfig{
-			ResponseModalities: []string{"TEXT", "IMAGE"},
+		GenerationConfig: generationConfig,
+		SafetySettings:   buildGeminiSafetySettings(),
+	}, nil
+}
+
+func (a *Adaptor) convertNativeImageEditRequest(c *gin.Context, request dto.ImageRequest) (*dto.GeminiChatRequest, error) {
+	if strings.TrimSpace(request.Prompt) == "" {
+		return nil, types.NewErrorWithStatusCode(
+			errors.New("prompt is required for image edit"),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+			types.ErrOptionWithSkipRetry(),
+		)
+	}
+	if c == nil || c.Request == nil {
+		return nil, types.NewErrorWithStatusCode(
+			errors.New("multipart request is required for gemini image edit"),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+			types.ErrOptionWithSkipRetry(),
+		)
+	}
+
+	if c.Request.MultipartForm == nil {
+		if err := c.Request.ParseMultipartForm(int64(maxGeminiInlineImageSize) + 1<<20); err != nil {
+			return nil, types.NewErrorWithStatusCode(
+				fmt.Errorf("failed to parse multipart form: %w", err),
+				types.ErrorCodeInvalidRequest,
+				http.StatusBadRequest,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
+	}
+
+	files := c.Request.MultipartForm.File["image"]
+	if len(files) == 0 {
+		return nil, types.NewErrorWithStatusCode(
+			errors.New("image is required for gemini image edit"),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+			types.ErrOptionWithSkipRetry(),
+		)
+	}
+
+	parts := make([]dto.GeminiPart, 0, len(files)+1)
+	for _, fileHeader := range files {
+		if fileHeader.Size > maxGeminiInlineImageSize {
+			return nil, types.NewErrorWithStatusCode(
+				fmt.Errorf("image file %q exceeds %d bytes", fileHeader.Filename, maxGeminiInlineImageSize),
+				types.ErrorCodeReadRequestBodyFailed,
+				http.StatusRequestEntityTooLarge,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
+		mimeType := strings.ToLower(strings.TrimSpace(fileHeader.Header.Get("Content-Type")))
+		if _, ok := geminiSupportedInlineMimeTypes[mimeType]; !ok {
+			return nil, types.NewErrorWithStatusCode(
+				fmt.Errorf("unsupported image mime type %q, only image/png, image/jpeg, image/webp are supported", mimeType),
+				types.ErrorCodeInvalidRequest,
+				http.StatusBadRequest,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
+		f, err := fileHeader.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open uploaded image: %w", err)
+		}
+		data, readErr := io.ReadAll(f)
+		closeErr := f.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read uploaded image: %w", readErr)
+		}
+		if closeErr != nil {
+			return nil, fmt.Errorf("failed to close uploaded image: %w", closeErr)
+		}
+		parts = append(parts, dto.GeminiPart{
+			InlineData: &dto.GeminiInlineData{
+				MimeType: mimeType,
+				Data:     base64.StdEncoding.EncodeToString(data),
+			},
+		})
+	}
+	parts = append(parts, dto.GeminiPart{Text: request.Prompt})
+
+	generationConfig := dto.GeminiChatGenerationConfig{
+		ResponseModalities: []string{"TEXT", "IMAGE"},
+	}
+	imageConfig, err := buildGeminiImageConfig(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal gemini image config: %w", err)
+	}
+	if len(imageConfig) > 0 {
+		generationConfig.ImageConfig = imageConfig
+	}
+
+	return &dto.GeminiChatRequest{
+		Contents: []dto.GeminiChatContent{
+			{Role: "user", Parts: parts},
 		},
-		SafetySettings: buildGeminiSafetySettings(),
+		GenerationConfig: generationConfig,
+		SafetySettings:   buildGeminiSafetySettings(),
 	}, nil
 }
 
@@ -214,6 +386,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
+	if isGeminiNativeImageGeneration(info) {
+		req.Set("Content-Type", "application/json")
+	}
 	req.Set("x-goog-api-key", info.ApiKey)
 	return nil
 }

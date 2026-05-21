@@ -194,9 +194,10 @@ describe('playground payload helpers', () => {
         ...baseInputs,
         model: 'gemini-3.1-flash-image-preview',
         prompt_n: 4,
+        imageGenerationMode: 'gemini_native',
         imageParameters: {
-          size: false,
-          quality: false,
+          size: true,
+          quality: true,
           response_format: false,
           n_max: 1,
         },
@@ -209,6 +210,26 @@ describe('playground payload helpers', () => {
       prompt: 'draw a robot',
       n: 1,
     });
+  });
+
+  test('getImageSizeOptionsForModel returns Gemini aspect ratios for gemini_native mode', () => {
+    expect(
+      getImageSizeOptionsForModel(
+        'gemini-3.1-flash-image-preview',
+        { size: true },
+        'gemini_native',
+      ),
+    ).toEqual(['', '1:1', '4:3', '3:4', '16:9', '9:16', '21:9']);
+  });
+
+  test('getImageQualityOptionsForModel returns Gemini image sizes for gemini_native mode', () => {
+    expect(
+      getImageQualityOptionsForModel(
+        'gemini-3.1-flash-image-preview',
+        { quality: true },
+        'gemini_native',
+      ),
+    ).toEqual(['', '1K', '2K', '4K']);
   });
 
   test('buildImagePayload applies partial image_parameters capabilities', () => {
@@ -257,12 +278,14 @@ describe('playground payload helpers', () => {
       getImageSizeOptionsForModel(
         'gemini-3.1-flash-image-preview',
         imageParameters,
+        'gemini_native',
       ),
     ).toEqual([]);
     expect(
       getImageQualityOptionsForModel(
         'gemini-3.1-flash-image-preview',
         imageParameters,
+        'gemini_native',
       ),
     ).toEqual([]);
   });
@@ -393,6 +416,98 @@ describe('playground payload helpers', () => {
     expect(futureGptImagePayload.response_format).toBe('url');
   });
 
+  test('buildImageGenerationPayload sends Gemini aspect ratio and image size through size and quality fields', () => {
+    const payload = buildImageGenerationPayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'draw a vertical poster',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gemini-3.1-flash-image-preview',
+        prompt_size: '9:16',
+        prompt_quality: '2K',
+        prompt_response_format: 'url',
+        prompt_n: 4,
+        imageGenerationMode: 'gemini_native',
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: false,
+          n_max: 1,
+          supports_edits: true,
+        },
+      },
+    );
+
+    expect(payload).toEqual({
+      model: 'gemini-3.1-flash-image-preview',
+      group: 'default',
+      prompt: 'draw a vertical poster',
+      n: 1,
+      size: '9:16',
+      quality: '2K',
+    });
+  });
+
+  test('Gemini native default empty size and quality are omitted from generation payload', () => {
+    const payload = buildImageGenerationPayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'draw a default image',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gemini-3.1-flash-image-preview',
+        prompt_size: '',
+        prompt_quality: '',
+        imageGenerationMode: 'gemini_native',
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: false,
+          n_max: 1,
+          supports_edits: true,
+        },
+      },
+    );
+
+    expect(payload.size).toBeUndefined();
+    expect(payload.quality).toBeUndefined();
+  });
+
+  test('sanitize drops legacy OpenAI size and quality when switching to gemini_native', () => {
+    const payload = buildImageGenerationPayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'draw with defaults',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gemini-3.1-flash-image-preview',
+        prompt_size: '1024x1024',
+        prompt_quality: 'auto',
+        imageGenerationMode: 'gemini_native',
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: false,
+          n_max: 1,
+          supports_edits: true,
+        },
+      },
+    );
+
+    expect(payload.size).toBeUndefined();
+    expect(payload.quality).toBeUndefined();
+  });
+
   test('buildImageEditPayload creates multipart payload and debug snapshot', () => {
     const file = new File(['image bytes'], 'apple.webp', {
       type: 'image/webp',
@@ -521,6 +636,42 @@ describe('playground payload helpers', () => {
     ).toBeUndefined();
   });
 
+  test('buildImageEditPayload includes Gemini aspect ratio and image size in FormData', () => {
+    const file = new File(['image bytes'], 'apple.png', {
+      type: 'image/png',
+    });
+    const payload = buildImageEditPayload(
+      [
+        {
+          role: MESSAGE_ROLES.USER,
+          content: 'make the apple green',
+        },
+      ],
+      {
+        ...baseInputs,
+        model: 'gemini-3.1-flash-image-preview',
+        prompt_size: '16:9',
+        prompt_quality: '4K',
+        prompt_n: 3,
+        imageGenerationMode: 'gemini_native',
+        image_reference_files: [file],
+        imageParameters: {
+          size: true,
+          quality: true,
+          response_format: false,
+          n_max: 1,
+          supports_edits: true,
+        },
+      },
+    );
+
+    expect(payload.formData.get('size')).toBe('16:9');
+    expect(payload.formData.get('quality')).toBe('4K');
+    expect(payload.formData.get('n')).toBe('1');
+    expect(payload.debugSnapshot.fields.size).toBe('16:9');
+    expect(payload.debugSnapshot.fields.quality).toBe('4K');
+  });
+
   test('buildPayloadByEndpoint creates edit multipart payload and requires a reference image', () => {
     const file = new File(['image bytes'], 'style.png', {
       type: 'image/png',
@@ -637,10 +788,11 @@ describe('playground payload helpers', () => {
           endpoint_types: [ENDPOINT_TYPES.IMAGE_GENERATION],
           image_generation_mode: 'gemini_native',
           image_parameters: {
-            size: false,
-            quality: false,
+            size: true,
+            quality: true,
             response_format: false,
             n_max: 1,
+            supports_edits: true,
           },
         },
       ],
@@ -660,10 +812,11 @@ describe('playground payload helpers', () => {
         endpointTypes: [ENDPOINT_TYPES.IMAGE_GENERATION],
         imageGenerationMode: 'gemini_native',
         imageParameters: {
-          size: false,
-          quality: false,
+          size: true,
+          quality: true,
           response_format: false,
           n_max: 1,
+          supports_edits: true,
         },
       },
     ]);
@@ -681,10 +834,11 @@ describe('playground payload helpers', () => {
           ],
           image_generation_mode: 'gemini_native',
           image_parameters: {
-            size: false,
-            quality: false,
+            size: true,
+            quality: true,
             response_format: false,
             n_max: 1,
+            supports_edits: true,
           },
         },
       ],
@@ -703,10 +857,11 @@ describe('playground payload helpers', () => {
         ],
         imageGenerationMode: 'gemini_native',
         imageParameters: {
-          size: false,
-          quality: false,
+          size: true,
+          quality: true,
           response_format: false,
           n_max: 1,
+          supports_edits: true,
         },
       },
     ]);

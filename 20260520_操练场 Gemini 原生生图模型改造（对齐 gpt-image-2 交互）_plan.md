@@ -131,7 +131,8 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    P1[Phase 1 后端契约打通<br/>metadata + adaptor edits 分支 + pass-through 守卫] --> P2
+    P0[Phase 0 数据与配置前置确认<br/>endpoint_types 必须含 image-generation] --> P1
+    P1[Phase 1 后端契约打通<br/>metadata + adaptor edits 分支 + pass-through 守卫 + Vertex 响应链] --> P2
     P2[Phase 2 后端参数映射<br/>size→aspectRatio + quality→imageSize 写进 imageConfig] --> P3
     P3[Phase 3 后端 edits 文件处理<br/>multipart File 读取 + inline_data + 错误码] --> P4
     P4[Phase 4 前端参数面板差异化<br/>选项列表 + UI 标签条件化] --> P5
@@ -139,11 +140,60 @@ flowchart TD
     P6[Phase 6 测试与验收<br/>单测 + 手工 + E2E]
 ```
 
-> 顺序原则：**后端能力先行（metadata 启用 supports_edits 会立刻让前端 Radio 出现，必须保证后端 edits 实际可用，否则点击 → 500）**；前端参数面板差异化最后做（不影响功能，只影响 UX 文案）。
+> 顺序原则：**先确认数据库/模型元数据能让 playground 进入 image-generation 分支 → 后端能力先行（metadata 启用 supports_edits 会立刻让前端 Radio 出现，必须保证后端 edits 实际可用，否则点击 → 500）**；前端参数面板差异化最后做（不影响功能，只影响 UX 文案）。
 
 ---
 
-## 六、Phase 1 — 后端契约打通
+## 五.零、Phase 0 — 数据与配置前置确认（必须） Done
+
+完成摘要：已确认 `common.IsGeminiNativeImageModel` 精确覆盖 3 个目标模型，默认 `GetEndpointTypesByChannelType` 会把它们置为 `image-generation` 优先端点；`model/pricing.go` 的 `models.endpoints` 非空时确实会替换默认端点而非合并。
+完成摘要：本地未发现可直接查询的 SQLite 数据库文件；`127.0.0.1:9991/api/user/playground/models` 存在但无登录态返回 401，运行态 `models.endpoints` 自定义覆盖需在带登录态/部署环境复核，本轮不做前端硬编码兜底。
+
+### Step 0.1 — 确认 Gemini 原生生图模型的 endpoint_types 不被自定义 endpoints 覆盖
+
+**文件/逻辑**：`model/pricing.go:213-245`、`controller/user.go:GetUserPlaygroundModels`
+
+`model/pricing.go` 会先根据渠道能力和 `common.GetEndpointTypesByChannelType` 生成默认端点；但如果 `models.endpoints` 非空，会用自定义 endpoints **替换**默认端点，而不是合并。因此即使 `common.IsGeminiNativeImageModel(modelName)` 返回 true，只要数据库里该模型的自定义 endpoints 没有 `"image-generation"`，`/api/user/playground/models` 就不会把该模型暴露为操练场生图模型，前端也不会显示本计划新增的 Radio / Uploader / 参数面板。
+
+执行前必须验证三个模型：
+
+- `gemini-2.5-flash-image`
+- `gemini-3-pro-image-preview`
+- `gemini-3.1-flash-image-preview`
+
+检查要求：
+
+```bash
+curl -fsS http://127.0.0.1:9991/api/user/playground/models \
+  | jq '.data[] | select(.name | test("^gemini-(2.5-flash-image|3-pro-image-preview|3.1-flash-image-preview)$"))'
+```
+
+每个已启用模型必须满足：
+
+```json
+{
+  "endpoint_types": ["image-generation", "..."],
+  "image_generation_mode": "gemini_native",
+  "image_parameters": {
+    "size": true,
+    "quality": true,
+    "response_format": false,
+    "n_max": 1,
+    "supports_edits": true
+  }
+}
+```
+
+若 `endpoint_types` 缺少 `"image-generation"`，先修正模型元数据配置（尤其是 `models.endpoints`），再继续 Phase 1；不要在前端硬编码兜底。
+
+**判定通过**：`/api/user/playground/models` 返回的 Gemini 原生生图模型均包含 `endpoint_types` 的 `"image-generation"`；如果存在自定义 endpoints，确认其显式包含 `"image-generation"`。
+
+---
+
+## 六、Phase 1 — 后端契约打通 Done
+
+完成摘要：已启用 Gemini native playground metadata 的 `size/quality/supports_edits`，并打通 Gemini adaptor edits relay mode、Gemini edits pass-through 守卫与 Vertex edits 响应链。
+完成摘要：已补 controller、Gemini adaptor、Vertex adaptor、image_handler 覆盖测试；`go test ./controller ./relay/channel/gemini ./relay/channel/vertex ./relay -v` 通过。
 
 ### Step 1.1 — `controller/user.go` 元数据下发 `SupportsEdits + Size + Quality`
 
@@ -238,18 +288,53 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 
 **判定通过**：编译通过；单测构造 edits 用例不再返回 `not supported model for image generation` 错误。
 
-### Step 1.5 — Phase 1 单测
+### Step 1.5 — `relay/channel/vertex/adaptor.go` 同步 Gemini native edits 响应处理
+
+**文件**：`relay/channel/vertex/adaptor.go:369-399`
+
+Vertex adaptor 已复用 Gemini adaptor 的 `ConvertImageRequest`：
+
+```go
+func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+    geminiAdaptor := gemini.Adaptor{}
+    return geminiAdaptor.ConvertImageRequest(c, info, request)
+}
+```
+
+因此 Phase 1.2 / 1.4 打通 Gemini edits 后，Vertex 渠道的请求体也会被正确转换成 `:generateContent` JSON。但当前 Vertex `DoResponse` 只在 `RelayModeImagesGenerations + Gemini native` 时调用 `GeminiNativeImageChatHandler`，`RelayModeImagesEdits` 会落到普通 Gemini chat handler，前端拿不到 `ImageResponse{data:[{b64_json}]}`。
+
+必须把判断同步扩展为 generations / edits 两种 relay mode：
+
+```go
+if common.IsGeminiNativeImageModel(info.UpstreamModelName) &&
+    (info.RelayMode == constant.RelayModeImagesGenerations ||
+        info.RelayMode == constant.RelayModeImagesEdits) {
+    return gemini.GeminiNativeImageChatHandler(c, info, resp)
+}
+```
+
+- 这是必须项，不是可选增强；否则 Gemini 官方渠道可用，Vertex Gemini 渠道图生图不可用。
+- 不改变 Vertex 原生 Gemini `/v1beta/models/*:generateContent` 透传路径；`RelayModeGemini` 仍走 `GeminiTextGenerationHandler`。
+- 不改变 Vertex `imagen-*` 路径；`imagen-*` 仍走 `GeminiImageHandler`。
+
+**判定通过**：新增/扩展 Vertex 单测，覆盖 `gemini-3.1-flash-image-preview + RelayModeImagesEdits` 响应经 `GeminiNativeImageChatHandler` 转为 OpenAI ImageResponse；同时验证 `RelayModeGemini` 与 `imagen-*` 不回归。
+
+### Step 1.6 — Phase 1 单测
 
 **新增 / 扩展**：
 - `relay/channel/gemini/adaptor_image_test.go`：补 `TestConvertImageRequest_GeminiNativeEditsRoutedToEdit` —— 验证 edits relay mode 命中新分支；`TestIsGeminiNativeImageGeneration_AllowsEdits`。
 - `controller/user_test.go`（或扩展 playground_test.go）：补 `TestPlaygroundGeminiNativeMetadataSupportsEdits` —— 验证 `gemini-3.1-flash-image-preview` 返回 `size:true / quality:true / supports_edits:true / response_format:false / n_max:1`。
 - `relay/image_handler_test.go`（如不存在则新建）：补 pass-through 守卫覆盖。
+- `relay/channel/vertex/adaptor_test.go`（或现有 Vertex 测试文件）：补 Gemini native edits 响应处理用例，确保 Vertex 渠道与 Gemini 渠道在 playground image edits 下输出同形 `ImageResponse`。
 
-**判定通过**：`go test ./controller ./relay/channel/gemini ./relay -v` 全绿。
+**判定通过**：`go test ./controller ./relay/channel/gemini ./relay/channel/vertex ./relay -v` 全绿。
 
 ---
 
-## 七、Phase 2 — 后端 generations imageConfig 映射
+## 七、Phase 2 — 后端 generations imageConfig 映射 Done
+
+完成摘要：已新增 Gemini native `imageConfig` 构建逻辑，按白名单把 `size` 映射为 `aspectRatio`，把 `quality` 映射为 `imageSize`，未识别旧 OpenAI 值会静默丢弃。
+完成摘要：已让 generations 请求在有合法参数时注入 `generationConfig.imageConfig`，并用 Gemini adaptor 单测覆盖宽高比、分辨率、组合参数与无效值丢弃。
 
 ### Step 2.1 — 在 `gemini/adaptor.go` 引入 imageConfig 构建辅助函数
 
@@ -358,11 +443,16 @@ func (a *Adaptor) convertNativeImageChatRequest(request dto.ImageRequest) (*dto.
 
 ---
 
-## 八、Phase 3 — 后端 edits 文件处理（inline_data）
+## 八、Phase 3 — 后端 edits 文件处理（inline_data） Done
+
+完成摘要：已实现 Gemini native edits multipart 文件读取，将 `image` 文件转为 `inlineData` parts，并与 prompt、`responseModalities`、`imageConfig`、`safetySettings` 一起发送到 `:generateContent`。
+完成摘要：已覆盖 happy path、多图、imageConfig、缺文件、超大小、MIME 不支持等测试；本地校验错误返回 400/413 且 `SkipRetry=true`。
 
 ### Step 3.1 — `convertNativeImageEditRequest` 实现
 
 **新增**：`relay/channel/gemini/adaptor.go`（紧跟 `convertNativeImageChatRequest`）
+
+> **错误处理硬约束**：Gemini edits 的本地校验错误必须返回 4xx 且跳过重试。当前 `relay/image_handler.go` 在 `ConvertImageRequest` 返回普通 `error` 时会包装成默认 500（`types.NewError(err, ErrorCodeConvertRequestFailed)`），且不会自动 `SkipRetry`。因此 `convertNativeImageEditRequest` 不能只返回 `errors.New(...)` 表达用户输入错误；缺文件、MIME 不支持、超大小、multipart 解析失败等都必须返回 `*types.NewAPIError`，并携带 `types.ErrOptionWithSkipRetry()`。
 
 ```go
 const maxGeminiInlineImageSize = 10 * 1024 * 1024 // 与前端 MAX_REFERENCE_FILE_SIZE 一致
@@ -375,28 +465,53 @@ var geminiSupportedInlineMimeTypes = map[string]struct{}{
 
 func (a *Adaptor) convertNativeImageEditRequest(c *gin.Context, request dto.ImageRequest) (*dto.GeminiChatRequest, error) {
     if strings.TrimSpace(request.Prompt) == "" {
-        return nil, errors.New("prompt is required for image edit")
+        return nil, types.NewErrorWithStatusCode(
+            errors.New("prompt is required for image edit"),
+            types.ErrorCodeInvalidRequest,
+            http.StatusBadRequest,
+            types.ErrOptionWithSkipRetry(),
+        )
     }
 
     if c.Request.MultipartForm == nil {
         if err := c.Request.ParseMultipartForm(int64(maxGeminiInlineImageSize) + 1<<20); err != nil {
-            return nil, fmt.Errorf("failed to parse multipart form: %w", err)
+            return nil, types.NewErrorWithStatusCode(
+                fmt.Errorf("failed to parse multipart form: %w", err),
+                types.ErrorCodeInvalidRequest,
+                http.StatusBadRequest,
+                types.ErrOptionWithSkipRetry(),
+            )
         }
     }
 
     files := c.Request.MultipartForm.File["image"]
     if len(files) == 0 {
-        return nil, errors.New("image is required for gemini image edit")
+        return nil, types.NewErrorWithStatusCode(
+            errors.New("image is required for gemini image edit"),
+            types.ErrorCodeInvalidRequest,
+            http.StatusBadRequest,
+            types.ErrOptionWithSkipRetry(),
+        )
     }
 
     parts := make([]dto.GeminiPart, 0, len(files)+1)
     for _, fileHeader := range files {
         if fileHeader.Size > maxGeminiInlineImageSize {
-            return nil, fmt.Errorf("image file %q exceeds %d bytes", fileHeader.Filename, maxGeminiInlineImageSize)
+            return nil, types.NewErrorWithStatusCode(
+                fmt.Errorf("image file %q exceeds %d bytes", fileHeader.Filename, maxGeminiInlineImageSize),
+                types.ErrorCodeReadRequestBodyFailed,
+                http.StatusRequestEntityTooLarge,
+                types.ErrOptionWithSkipRetry(),
+            )
         }
         mimeType := strings.ToLower(strings.TrimSpace(fileHeader.Header.Get("Content-Type")))
         if _, ok := geminiSupportedInlineMimeTypes[mimeType]; !ok {
-            return nil, fmt.Errorf("unsupported image mime type %q, only image/png, image/jpeg, image/webp are supported", mimeType)
+            return nil, types.NewErrorWithStatusCode(
+                fmt.Errorf("unsupported image mime type %q, only image/png, image/jpeg, image/webp are supported", mimeType),
+                types.ErrorCodeInvalidRequest,
+                http.StatusBadRequest,
+                types.ErrOptionWithSkipRetry(),
+            )
         }
         f, err := fileHeader.Open()
         if err != nil {
@@ -438,6 +553,7 @@ func (a *Adaptor) convertNativeImageEditRequest(c *gin.Context, request dto.Imag
 ```
 
 - `c.Request.MultipartForm` 在 distributor / `GetAndValidOpenAIImageRequest` 已经触发过 `MultipartForm()` 解析，正常情况下非 nil；保留 fallback `ParseMultipartForm` 以防解析顺序变化。
+- `types.NewAPIError` 会被 `types.NewError` 原样保留；因此在 `ImageHelper` 包装 `ErrorCodeConvertRequestFailed` 时，4xx 状态码与 `SkipRetry` 不会丢失。
 - **MIME 来自 `fileHeader.Header.Get("Content-Type")`**：浏览器自动填入；与 `ImageReferenceUploader` 的 `accept` 白名单一致。不依赖文件扩展名（前端可能上传 `apple` 无扩展名但 MIME 正确的文件）。
 - **base64 编码用 `base64.StdEncoding`**：Gemini API 接受 padded base64。
 - **顺序：image 在前、text 在后**：与 `gemini生图模型支持接口和参数情况.md` §四.2 / §九 复现命令一致；上游对 parts 顺序敏感度低，但保持与官方文档示例一致更安全。
@@ -448,7 +564,7 @@ func (a *Adaptor) convertNativeImageEditRequest(c *gin.Context, request dto.Imag
 
 **文件**：`relay/channel/gemini/adaptor.go`（import 段）
 
-新增 `encoding/base64`、`io`、`encoding/json`（如尚未引入）。`fmt` 已存在。
+新增 `encoding/base64`、`io`、`encoding/json`（如尚未引入）、`net/http`。`fmt` 已存在。
 
 ### Step 3.3 — Phase 3 单测
 
@@ -457,9 +573,9 @@ func (a *Adaptor) convertNativeImageEditRequest(c *gin.Context, request dto.Imag
 | 用例 | 期望 |
 |---|---|
 | `TestConvertNativeImageEditRequest_HappyPath` | 模拟 `c.Request.MultipartForm.File["image"]` 含一张 PNG；返回的 GeminiChatRequest `contents[0].parts` 长度=2，前者 InlineData.MimeType=image/png + Data 是 base64，后者 Text 是 prompt |
-| `TestConvertNativeImageEditRequest_NoFileReturnsError` | 不放 image 文件 → 返回 `image is required for gemini image edit` |
-| `TestConvertNativeImageEditRequest_OversizeRejected` | 模拟 11MB 文件 → 返回 `exceeds` 错误 |
-| `TestConvertNativeImageEditRequest_UnsupportedMimeRejected` | Content-Type=`image/gif` → 返回 `unsupported image mime type` |
+| `TestConvertNativeImageEditRequest_NoFileReturnsError` | 不放 image 文件 → 返回 `image is required for gemini image edit`，状态码 400，`SkipRetry=true` |
+| `TestConvertNativeImageEditRequest_OversizeRejected` | 模拟 11MB 文件 → 返回 `exceeds` 错误，状态码 413，`SkipRetry=true` |
+| `TestConvertNativeImageEditRequest_UnsupportedMimeRejected` | Content-Type=`image/gif` → 返回 `unsupported image mime type`，状态码 400，`SkipRetry=true` |
 | `TestConvertNativeImageEditRequest_AppliesImageConfig` | Size=`16:9` + Quality=`2K` → request body 含 `imageConfig.aspectRatio=16:9 / imageSize=2K` |
 | `TestConvertNativeImageEditRequest_MultipleImages` | 两张文件 → parts 含两个 InlineData + 一个 Text（验证多图后端容量） |
 
@@ -467,7 +583,10 @@ func (a *Adaptor) convertNativeImageEditRequest(c *gin.Context, request dto.Imag
 
 ---
 
-## 九、Phase 4 — 前端参数面板差异化
+## 九、Phase 4 — 前端参数面板差异化 Done
+
+完成摘要：已让前端基于后端 `imageGenerationMode === "gemini_native"` 切换 Gemini 原生宽高比/分辨率选项与标签，不新增前端 Gemini 模型白名单。
+完成摘要：已处理旧 `prompt_size=1024x1024` / `prompt_quality=auto` 在 Gemini 模式下显示为「默认（不发送）」且 payload 省略；目标前端测试 36 项通过。
 
 ### Step 4.1 — `playgroundPayload.js` 增加 Gemini native 选项
 
@@ -475,6 +594,7 @@ func (a *Adaptor) convertNativeImageEditRequest(c *gin.Context, request dto.Imag
 
 ```js
 const GEMINI_NATIVE_ASPECT_RATIOS = [
+  '',
   '1:1',
   '4:3',
   '3:4',
@@ -483,7 +603,7 @@ const GEMINI_NATIVE_ASPECT_RATIOS = [
   '21:9',
 ];
 
-const GEMINI_NATIVE_IMAGE_SIZES = ['1K', '2K', '4K'];
+const GEMINI_NATIVE_IMAGE_SIZES = ['', '1K', '2K', '4K'];
 
 export const isGeminiNativeImageModel = (model = '') =>
   model.toLowerCase() === 'gemini-2.5-flash-image' ||
@@ -575,6 +695,7 @@ const labelByValue = {
   auto: '自动', standard: '标准', hd: '高清', low: '低', medium: '中', high: '高',
   url: 'URL', b64_json: 'Base64 JSON',
   // 新增（Gemini）
+  '': '默认（不发送）',
   '1:1': '1:1（方形）',
   '4:3': '4:3',
   '3:4': '3:4',
@@ -587,7 +708,18 @@ const labelByValue = {
 };
 ```
 
-**判定通过**：选 `gemini-3.1-flash-image-preview` 后参数面板显示「宽高比」「图像分辨率」标签，选项为 6 档 aspectRatio 与 3 档 imageSize；切到 `gpt-image-2` 后标签恢复为「图像尺寸」「图像质量」，选项恢复 OpenAI 风格。
+必须处理旧配置 / 切换模型后的无效 Select value。当前 `ImageParameterControl` 直接把 `inputs.prompt_size` / `inputs.prompt_quality` 传给 Semi `Select`；如果老用户 localStorage 中仍是 `1024x1024` / `auto`，切到 Gemini 后这些值不在 Gemini optionList 内，不能让 UI 显示一个无效的「宽高比」或「图像分辨率」值。
+
+首选实现是上面这种：Gemini native 选项显式提供 `''` =「默认（不发送）」，让 UI 状态、payload sanitize、上游默认行为一致。若执行时不把 `''` 放进 optionList，也必须在控件层计算受控值：
+
+```js
+const normalizeSelectValue = (value, options) =>
+  options.some((option) => option.value === value) ? value : '';
+```
+
+并对 size/quality 两个 Select 使用 normalized value；否则 §11.2 的「旧 localStorage 切 Gemini 后 UI 显示为空/默认」无法稳定成立。
+
+**判定通过**：选 `gemini-3.1-flash-image-preview` 后参数面板显示「宽高比」「图像分辨率」标签，选项为默认空值 + 6 档 aspectRatio、默认空值 + 3 档 imageSize；旧 `prompt_size=1024x1024` / `prompt_quality=auto` 切到 Gemini 时 UI 显示「默认（不发送）」且 payload 不含 `size` / `quality`；切到 `gpt-image-2` 后标签恢复为「图像尺寸」「图像质量」，选项恢复 OpenAI 风格。
 
 ### Step 4.3 — `usePlaygroundState.js` 暴露 `imageGenerationMode`
 
@@ -624,6 +756,7 @@ const inputsWithImageParameters = useMemo(
 
 - `DEFAULT_CONFIG.inputs.prompt_size = '1024x1024'`、`prompt_quality = 'auto'` 保留（gpt-image-2 等需要）。
 - `sanitizePlaygroundInputsForStorage` 不需要新增清理项——`prompt_size` / `prompt_quality` 在 `gemini_native` 模式下若残留 OpenAI 风格值会被 `sanitizeImageSize` / `sanitizeImageQuality` 静默丢弃，不上传到上游，且 UI 切回时仍能用。
+- UI 层必须同步显示空值 / 默认值，不能只在 payload 阶段丢弃；否则用户看到的参数与实际发送参数不一致。
 - 唯一可能的体验问题：用户在 Gemini 下选 `9:16`，切到 `gpt-image-2`，`prompt_size` 是 `9:16` 但 OpenAI 不识别 → `sanitizeImageSize` 会 fallback 到 `getDefaultImageSizeForModel(model) = '1024x1024'`。这与现有行为一致，无需特殊处理。
 - **校验**：`bun test src/helpers/playgroundPayload.test.js` 验证「切模型后旧值被丢弃」分支。
 
@@ -636,15 +769,20 @@ const inputsWithImageParameters = useMemo(
   - `buildImageGenerationPayload sends aspect ratio via size field for gemini_native`
   - `buildImageEditPayload FormData includes aspect ratio + imageSize when gemini_native`
   - `sanitizeImageSize drops legacy 1024x1024 when switching to gemini_native`
+  - `Gemini native default empty size/quality are omitted from payload`
 - `web/src/components/playground/ImageParameterControl.test.jsx`：
   - `renders 宽高比 / 图像分辨率 labels for gemini_native`
+  - `shows 默认（不发送） when stored Gemini size/quality value is not in option list`
   - `renders 图像尺寸 / 图像质量 labels for gpt-image-2`
 
 **判定通过**：`bun test src/helpers/playgroundPayload.test.js src/components/playground/ImageParameterControl.test.jsx` 全绿。
 
 ---
 
-## 十、Phase 5 — i18n + 默认值清理
+## 十、Phase 5 — i18n + 默认值清理 Done
+
+完成摘要：已为 zh-CN / zh-TW / en / fr / ru / ja / vi 补齐「宽高比」「图像分辨率」「默认（不发送）」及 Gemini 选项标签翻译。
+完成摘要：已运行 `bun run i18n:lint` 并通过；默认值清理由 payload sanitize 与控件 normalized value 双层保证。
 
 ### Step 5.1 — i18n
 
@@ -658,6 +796,7 @@ const inputsWithImageParameters = useMemo(
 | `图像分辨率` | gemini_native 模式 quality 标签 |
 | `1:1（方形）`、`16:9（宽屏）`、`9:16（竖屏）`、`21:9（超宽）` | 4 个带说明的 aspectRatio option label |
 | `1K（默认）` | imageSize=1K option label |
+| `默认（不发送）` | Gemini native 空 size / quality 选项 |
 | `Gemini 原生生图模型一次只生成 1 张图` | NMax=1 提示（可选，复用已有「Gemini 图像模型一次只生成 1 张图」即可，无需新增） |
 
 执行 `bun run i18n:lint` 校验 7 语言覆盖。
@@ -671,7 +810,10 @@ const inputsWithImageParameters = useMemo(
 
 ---
 
-## 十一、Phase 6 — 测试与验收
+## 十一、Phase 6 — 测试与验收 Done
+
+完成摘要：已新增 `controller/gemini_native_image_integration_test.go` 最小集成测试，覆盖真实 `/pg/images/edits` multipart → Distribute → Playground/Relay/ImageHelper → Gemini adaptor → mock `:generateContent` → OpenAI `ImageResponse` 全链路，并断言 `inlineData`、`text`、`responseModalities`、`imageConfig.aspectRatio/imageSize` 与日志 `request_path`。
+完成摘要：已补 Gemini/Vertex native image 出站 `Content-Type: application/json` 回归保护；`go test ./controller ./relay/channel/gemini ./relay/channel/vertex ./relay -v`、`bun test src/helpers/playgroundPayload.test.js src/components/playground/ImageParameterControl.test.jsx`、`bun run i18n:lint` 均通过。
 
 ### 11.1 自动化
 
@@ -680,6 +822,7 @@ const inputsWithImageParameters = useMemo(
 | 后端 | `controller/user_test.go` | `gemini-*` metadata 形态：`size=true / quality=true / supports_edits=true / response_format=false / n_max=1 / image_generation_mode=gemini_native` |
 | 后端 | `relay/channel/gemini/adaptor_image_test.go` | `isGeminiNativeImageGeneration` 允许 edits；`ConvertImageRequest` 派发；`convertNativeImageChatRequest` 注入 imageConfig；`convertNativeImageEditRequest` 6 个用例（见 Step 3.3）；保持 `n / response_format` 仍被丢弃的现有保护 |
 | 后端 | `relay/image_handler_test.go` | `shouldPassThroughImageRequest` 对 `gemini_native + edits` 强制关闭 |
+| 后端 | `relay/channel/vertex/adaptor_test.go` | Vertex Gemini native edits 响应走 `GeminiNativeImageChatHandler`，不落普通 chat handler |
 | 前端 | `web/src/helpers/playgroundPayload.test.js` | size/quality 选项 + sanitize + payload 构造（见 Step 4.6） |
 | 前端 | `web/src/components/playground/ImageParameterControl.test.jsx` | UI 标签条件化（见 Step 4.6） |
 
@@ -697,10 +840,49 @@ const inputsWithImageParameters = useMemo(
 - [ ] 切到 `imagen-3-fast-generate-001`：走 `convertImagenRequest` 路径（独立），UI 显示 size 字段不变（无 Radio，因 metadata 未下发 supports_edits）。
 - [ ] 切到 `gpt-4o`：endpointType=openai，参数面板显示 chat 参数。
 - [ ] 自定义请求体模式 + Gemini + 图生图：发送按钮 disabled 并提示「自定义请求体模式不支持图生图」。
-- [ ] 旧用户 localStorage 中 `prompt_size='1024x1024'`：切到 Gemini 后 UI 显示「宽高比」当前值为空（被 sanitize 丢弃），不影响发送。
+- [ ] 旧用户 localStorage 中 `prompt_size='1024x1024'` / `prompt_quality='auto'`：切到 Gemini 后 UI 显示「默认（不发送）」，payload 不含 `size` / `quality`，不影响发送。
 - [ ] 计费日志：generations/edits 各一次，`/api/log/self?type=2` 最近条目 `model_name='gemini-3.1-flash-image-preview'`，`other.request_path` 分别为 `/pg/images/generations` 与 `/pg/images/edits`，`quota > 0`。
 
-### 11.3 E2E（可选，沿用 gpt-image-2 套路）
+### 11.3 最小集成测试（必须）
+
+单元测试覆盖不到 body storage、multipart 复读、distributor 解析 `model/group`、relay mode、pass-through 守卫、Gemini adaptor 转换、Gemini 响应回写 OpenAI ImageResponse 这些组合行为。因此本计划必须至少新增一条最小集成测试，不能只靠手工回归。
+
+**目标链路**：
+
+```mermaid
+sequenceDiagram
+    participant FE as Test Client
+    participant API as new-api /pg/images/edits
+    participant Dist as Distribute
+    participant Img as ImageHelper
+    participant Ad as Gemini Adaptor
+    participant Mock as Mock :generateContent
+
+    FE->>API: multipart {model, group, prompt, n=1, size=9:16, quality=2K, image}
+    API->>Dist: 从 multipart 解析 model/group 并选 Gemini channel
+    Dist->>Img: RelayModeImagesEdits
+    Img->>Ad: ConvertImageRequest
+    Ad->>Mock: JSON contents.parts[inlineData,text] + imageConfig
+    Mock-->>Img: candidates[].content.parts[].inlineData
+    Img-->>FE: ImageResponse{data:[{b64_json}]}
+```
+
+测试要求：
+
+- mock upstream 必须支持 `/v1beta/models/<model>:generateContent`，记录最近一次 JSON body。
+- 直发 `/pg/images/edits` multipart，断言 HTTP 200，响应 body 是 OpenAI `ImageResponse`，且 `data[0].b64_json` 存在。
+- 断言 mock 收到的上游 JSON：
+  - `contents[0].parts` 至少包含一个 `inlineData` 和一个 `text`；
+  - `inlineData.mimeType` 与上传文件一致；
+  - `generationConfig.responseModalities` 包含 `TEXT` 与 `IMAGE`；
+  - `generationConfig.imageConfig.aspectRatio == "9:16"`；
+  - `generationConfig.imageConfig.imageSize == "2K"`。
+- 测试环境必须显式关闭全局/渠道 pass-through，或断言 `shouldPassThroughImageRequest` 生效；否则 multipart 会绕过 adaptor，测试结果不稳定。
+- 该用例可以放在 `scripts/e2e/gemini-native-image/edits.spec.ts`，也可以先放在后端集成测试目录；关键是必须覆盖真实 HTTP multipart → mock upstream 的完整链路。
+
+**判定通过**：最小 edits 集成测试在本地 Docker Compose + mock upstream 下稳定通过；失败时能从 mock echo 看到上游 JSON 快照。
+
+### 11.4 完整 E2E（可后置，沿用 gpt-image-2 套路）
 
 > 与已落地的 `scripts/e2e/gpt-image-2/` 平行新建 `scripts/e2e/gemini-native-image/`，主要复用 `mock-upstream/server.ts` —— 但 mock 必须扩展对 `/v1beta/models/<model>:generateContent` 路径的支持（OpenAI 兼容路径 `/v1/images/generations` 在本场景下被 new-api 转成 Gemini 原生 URL 再发出）。
 >
@@ -713,7 +895,7 @@ const inputsWithImageParameters = useMemo(
 > - `guards.spec.ts`：edits 无文件阻断、自定义请求体阻断
 > - `regression.spec.ts`：gpt-image-2 / dall-e-3 / gpt-4o 行为不回归
 >
-> 详细 E2E 设计延后到本计划合并 + 上线后再做（可参考 `history_plan/20260429_操练场新增 gpt-image-2 文生图与图生图页面功能集成测试_plan.md` 的方法论），不阻断本计划合并。
+> 完整 E2E 设计可以延后到本计划合并 + 上线后再做（可参考 `history_plan/20260429_操练场新增 gpt-image-2 文生图与图生图页面功能集成测试_plan.md` 的方法论），但 §11.3 的最小 edits 集成测试不能后置。
 
 ---
 
@@ -722,12 +904,15 @@ const inputsWithImageParameters = useMemo(
 | 风险 | 触发条件 | 应对 |
 |---|---|---|
 | 模型双白名单不同步 | `common/model.go#geminiNativeImageModels` 与前端 `processModelsData` 解析的 `image_generation_mode` 不一致 | 前端不维护硬编码 model 列表，只读 `currentModelOption.imageGenerationMode === 'gemini_native'`（Step 4.3 已选择该路径） |
+| 模型自定义 endpoints 覆盖默认端点 | `models.endpoints` 非空且未包含 `"image-generation"`，导致 `/api/user/playground/models` 不返回生图端点 | Phase 0 必须先校验 `/api/user/playground/models`；缺失时先修模型元数据配置，不在前端硬编码兜底 |
 | `MultipartForm.File["image"]` 在 distributor 之前已被消费 | distributor 用 `UnmarshalBodyReusable` 解析 model/group，触发 `c.MultipartForm()`；正常情况下 File 仍可访问，但若 body storage 被替换为 stream 则失效 | `common.UnmarshalBodyReusable` 用 body storage 缓存原始 body；多次解析 multipart 安全。adaptor 用 `c.Request.MultipartForm.File["image"]` 即可，无需重读 body |
 | pass-through 仍可能绕过 adaptor | 全局或渠道 `PassThroughBodyEnabled=true`，且 Step 1.3 守卫漏 edits | Step 1.3 已显式覆盖 `RelayModeImagesEdits + gemini_native`；单测 lock |
+| Vertex Gemini edits 响应格式错误 | Vertex adaptor 复用 Gemini 请求转换，但 `DoResponse` 未把 edits 交给 `GeminiNativeImageChatHandler` | Step 1.5 同步扩展 Vertex 响应链，并用单测覆盖 |
+| 本地校验错误返回 500 / 触发重试 | `convertNativeImageEditRequest` 返回普通 `error`，被 `ImageHelper` 包装为默认 500 且非 skip-retry | Phase 3 要求用 `types.NewErrorWithStatusCode` 返回 400/413，并设置 `ErrOptionWithSkipRetry` |
 | 上游 4xx：`candidateCount` 隐式 > 1 | 本地 sanitizeImageCount 兜底失效，前端发 n=2 到后端 | metadata `NMax:1` + 前端 `isCountLocked` + 后端 `sanitizeImageCount` 三重保护；上游 4xx 不被吞，会原样回显 |
 | 上游 4xx：`imageConfig.aspectRatio` 非白名单值 | 前端选项以外的值通过 localStorage / 导入配置混入 | Step 2.1 `buildGeminiImageConfig` 白名单校验，未识别值静默丢弃；上游收到的请求只包含合法字段 |
 | Pass-through 模式下用户期望可绕过转换 | 高级用户在 channel 配置 `pass_through_body_enabled=true` 希望直接 multipart 透传 | 文档明确：Gemini native 图像不支持 pass-through；用户若要原生控制更精细的 `outputMimeType / personGeneration`，应直接调 `/v1beta/models/*:generateContent`（new-api 已透传该路径） |
-| 老 localStorage `prompt_size=1024x1024` 切到 Gemini 后空白 | UX 困惑 | 这是 sanitize 静默丢弃带来的预期行为，对应 §11.2 回归清单已列；首次 Phase 4 上线后用户调整一次后会持久化新值 |
+| 老 localStorage `prompt_size=1024x1024` 切到 Gemini 后显示无效值 | UI 显示值与实际 payload sanitize 后发送值不一致 | Step 4.2 必须提供「默认（不发送）」空值或控件层 normalized value，确保 UI 与 payload 一致 |
 | 多文件 UI 解锁后上游可能拒绝 | 首版前端 `limit=1`；上游官方支持 inline_data 多张但未实测 | 后端 `convertNativeImageEditRequest` 已支持循环多 File；UI 解锁多文件前需独立实测 |
 | 计费倍率不变 | `gemini-3.1-flash-image-preview` 现有计价配置未含 size/quality 倍率，本计划不变 | 与 gpt-image-* 同策略（`ImagePriceRatio=1.0` 默认），如需 size/quality 倍率，单独提案 |
 | OpenAI 渠道误配 Gemini 模型 | 用户把 `gemini-3.1-flash-image-preview` 放到 OpenAI 类型渠道 | 不归本计划，由用户配置正确的 Gemini 类型渠道；OpenAI adaptor 收到 Gemini 模型会按 OpenAI 协议转发到上游，上游 404 / 400，错误清晰 |
@@ -740,19 +925,24 @@ const inputsWithImageParameters = useMemo(
 ### 后端（4 修改 + ≥1 新增测试）
 
 1. `controller/user.go` — `getPlaygroundImageGenerationMetadata` 的 `gemini_native` 分支启用 `Size:true / Quality:true / SupportsEdits:true`。
-2. `relay/channel/gemini/adaptor.go` — `isGeminiNativeImageGeneration` 加 `RelayModeImagesEdits`；`ConvertImageRequest` 加 edits 分支；新增 `buildGeminiImageConfig` / `normalizeGeminiImageSize` / `convertNativeImageEditRequest`；imports 加 `encoding/base64` / `io` / `encoding/json`。
+2. `relay/channel/gemini/adaptor.go` — `isGeminiNativeImageGeneration` 加 `RelayModeImagesEdits`；`ConvertImageRequest` 加 edits 分支；新增 `buildGeminiImageConfig` / `normalizeGeminiImageSize` / `convertNativeImageEditRequest`；imports 加 `encoding/base64` / `io` / `encoding/json` / `net/http`。
 3. `relay/image_handler.go` — `shouldPassThroughImageRequest` 扩展守卫到 `RelayModeImagesEdits + gemini_native`。
-4. **新增 / 扩展** `relay/channel/gemini/adaptor_image_test.go`、`controller/user_test.go`（或 `playground_test.go`）、`relay/image_handler_test.go`（如不存在则新建）。
+4. `relay/channel/vertex/adaptor.go` — Vertex Gemini native edits 响应也走 `GeminiNativeImageChatHandler`。
+5. **新增 / 扩展** `relay/channel/gemini/adaptor_image_test.go`、`relay/channel/vertex/adaptor_test.go`、`controller/user_test.go`（或 `playground_test.go`）、`relay/image_handler_test.go`（如不存在则新建）。
 
 ### 前端（3 修改 + 1 扩展测试）
 
-5. `web/src/helpers/playgroundPayload.js` — `getImageSizeOptionsForModel` / `getImageQualityOptionsForModel` 加 `imageGenerationMode` 参数；新增 `GEMINI_NATIVE_ASPECT_RATIOS` / `GEMINI_NATIVE_IMAGE_SIZES` 常量；`sanitizeImageSize` / `sanitizeImageQuality` 同步；`buildImageGenerationPayload` / `buildImageEditPayload` 透传 `imageGenerationMode`。
-6. `web/src/components/playground/ImageParameterControl.jsx` — `image_generation_mode === 'gemini_native'` 时切换标签为「宽高比」「图像分辨率」；扩展 `labelByValue`。
-7. `web/src/hooks/playground/usePlaygroundState.js` — `inputsWithImageParameters` 注入 `imageGenerationMode`。
-8. **扩展** `web/src/helpers/playgroundPayload.test.js`、`web/src/components/playground/ImageParameterControl.test.jsx`。
-9. `web/src/i18n/locales/{zh-CN,zh-TW,en,fr,ru,ja,vi}.json` — 新增 6-8 个翻译 key。
+6. `web/src/helpers/playgroundPayload.js` — `getImageSizeOptionsForModel` / `getImageQualityOptionsForModel` 加 `imageGenerationMode` 参数；新增 `GEMINI_NATIVE_ASPECT_RATIOS` / `GEMINI_NATIVE_IMAGE_SIZES` 常量（含默认空值）；`sanitizeImageSize` / `sanitizeImageQuality` 同步；`buildImageGenerationPayload` / `buildImageEditPayload` 透传 `imageGenerationMode`。
+7. `web/src/components/playground/ImageParameterControl.jsx` — `image_generation_mode === 'gemini_native'` 时切换标签为「宽高比」「图像分辨率」；扩展 `labelByValue`；无效旧值显示「默认（不发送）」或 normalized 空值。
+8. `web/src/hooks/playground/usePlaygroundState.js` — `inputsWithImageParameters` 注入 `imageGenerationMode`。
+9. **扩展** `web/src/helpers/playgroundPayload.test.js`、`web/src/components/playground/ImageParameterControl.test.jsx`。
+10. `web/src/i18n/locales/{zh-CN,zh-TW,en,fr,ru,ja,vi}.json` — 新增 6-8 个翻译 key。
 
-### 总计：约 7 修改 + ≥2 新建/扩展测试
+### 集成测试（至少 1 新增）
+
+11. `scripts/e2e/gemini-native-image/edits.spec.ts`（或等价后端集成测试）— 最小 multipart edits → Gemini `:generateContent` → ImageResponse 全链路测试。
+
+### 总计：约 8 修改 + ≥3 新建/扩展测试 + ≥1 最小集成测试
 
 ---
 
@@ -762,9 +952,9 @@ const inputsWithImageParameters = useMemo(
 2. `imagen-*`、`gpt-image-*`、`dall-e-*`、`flux-*`、`gpt-4o` 等模型的元数据形态完全保持当前现状（回归保护）。
 3. playground 选 Gemini 原生生图模型时：
    - 显示「请求方式」单选，默认「文生图」；
-   - 参数面板显示「宽高比」（6 档）、「图像分辨率」（3 档）、「图像数量」（锁定 1）；
+   - 参数面板显示「宽高比」（默认 + 6 档）、「图像分辨率」（默认 + 3 档）、「图像数量」（锁定 1）；
    - 不显示「返回格式」与「流式输出」。
-4. 文生图模式：请求 URL=`/pg/images/generations`、Content-Type=`application/json`；请求体可控字段 `{model, group, prompt, n=1, size?, quality?}`；空 size/quality 时 body 中省略。
+4. 文生图模式：请求 URL=`/pg/images/generations`、Content-Type=`application/json`；请求体可控字段 `{model, group, prompt, n=1, size?, quality?}`；空 size/quality 或旧 OpenAI 风格值被 Gemini sanitize 为空时 body 中省略，UI 同步显示「默认（不发送）」。
 5. 图生图模式：请求 URL=`/pg/images/edits`、Content-Type=`multipart/form-data; boundary=...`；FormData 字段集 `{model, group, prompt, n=1, size?, quality?, image}`。
 6. 后端 edits 进入 Gemini adaptor 后：
    - `convertNativeImageEditRequest` 从 `c.Request.MultipartForm.File["image"]` 读到文件；
@@ -772,12 +962,14 @@ const inputsWithImageParameters = useMemo(
    - 若提供 size/quality，body 含 `generationConfig.imageConfig.{aspectRatio,imageSize}`；
    - `responseModalities: ["TEXT","IMAGE"]` 始终注入；
    - `safetySettings` 沿用 `buildGeminiSafetySettings()`。
-7. 两种模式响应均能在聊天流中正确渲染（`GeminiNativeImageChatHandler` 已把 `candidates[].parts[].inlineData` 转 `ImageData{B64Json}`，前端 `buildImageResponseContent` 已能把 b64_json 转 data URI 展示）。
-8. `dall-e-*` / `gpt-image-*` / `flux-*` / `imagen-*` 的 playground 行为零回归。
-9. `/v1/chat/completions` multimodal 调用 Gemini 生图的行为零回归（走 `CovertOpenAI2Gemini` 独立路径）。
-10. 自定义请求体模式 + 图生图：UI 阻断并提示。
-11. 三库（SQLite/MySQL/PostgreSQL）冒烟通过（本次不改 schema，主要冒烟点 `models` 表的 endpoint_types JSON 字段在三库下 `/api/user/playground/models` 返回一致）。
-12. `go test ./controller ./relay/channel/gemini ./relay -v` 全绿；`bun test src/helpers/playgroundPayload.test.js src/components/playground/ImageParameterControl.test.jsx` 全绿；`bun run i18n:lint` 通过。
+7. 后端本地校验错误清晰：缺 image / prompt 为空 / MIME 不支持返回 400 且不重试；文件超过 10MB 返回 413 且不重试。
+8. Gemini 与 Vertex Gemini 两类渠道在 generations / edits 下响应均走 `GeminiNativeImageChatHandler`，聊天流正确渲染（`candidates[].parts[].inlineData` 转 `ImageData{B64Json}`，前端 `buildImageResponseContent` 把 b64_json 转 data URI 展示）。
+9. `dall-e-*` / `gpt-image-*` / `flux-*` / `imagen-*` 的 playground 行为零回归。
+10. `/v1/chat/completions` multimodal 调用 Gemini 生图的行为零回归（走 `CovertOpenAI2Gemini` 独立路径）。
+11. 自定义请求体模式 + 图生图：UI 阻断并提示。
+12. 三库（SQLite/MySQL/PostgreSQL）冒烟通过（本次不改 schema，主要冒烟点 `models` 表的 endpoint_types JSON 字段在三库下 `/api/user/playground/models` 返回一致）。
+13. 最小 `/pg/images/edits` multipart → Gemini `:generateContent` → OpenAI ImageResponse 集成测试通过。
+14. `go test ./controller ./relay/channel/gemini ./relay/channel/vertex ./relay -v` 全绿；`bun test src/helpers/playgroundPayload.test.js src/components/playground/ImageParameterControl.test.jsx` 全绿；`bun run i18n:lint` 通过。
 
 ---
 
@@ -785,29 +977,31 @@ const inputsWithImageParameters = useMemo(
 
 ```mermaid
 flowchart TD
+    S0[Phase 0 endpoint_types / models.endpoints 前置确认] --> S1
     S1[Phase 1.1 controller/user.go metadata SupportsEdits/Size/Quality] --> S2
     S2[Phase 1.2 isGeminiNativeImageGeneration 允许 edits] --> S3
     S3[Phase 1.3 image_handler.go pass-through 守卫加 edits] --> S4
     S4[Phase 1.4 ConvertImageRequest 加 edits 分支] --> S5
-    S5[Phase 1.5 Phase 1 单测] --> S6
-    S6[Phase 2.1 buildGeminiImageConfig + normalizeGeminiImageSize] --> S7
-    S7[Phase 2.2 convertNativeImageChatRequest 注入 imageConfig] --> S8
-    S8[Phase 2.3 Phase 2 单测] --> S9
-    S9[Phase 3.1 convertNativeImageEditRequest 实现] --> S10
-    S10[Phase 3.2 imports 同步] --> S11
-    S11[Phase 3.3 Phase 3 单测 6 用例] --> S12
-    S12[Phase 4.1 playgroundPayload Gemini native 选项与签名扩展] --> S13
-    S13[Phase 4.2 ImageParameterControl UI 标签条件化] --> S14
-    S14[Phase 4.3 usePlaygroundState 暴露 imageGenerationMode] --> S15
-    S15[Phase 4.4 透传链路接通] --> S16
-    S16[Phase 4.5 默认值清理 verify] --> S17
-    S17[Phase 4.6 Phase 4 单测] --> S18
-    S18[Phase 5.1 i18n 7 语言 + lint] --> S19
-    S19[Phase 5.2 默认值兜底校验] --> S20
-    S20[Phase 6 手工回归 + 单测 + 可选 E2E] --> END[合并主干]
+    S5[Phase 1.5 Vertex Gemini native edits 响应链] --> S6
+    S6[Phase 1.6 Phase 1 单测] --> S7
+    S7[Phase 2.1 buildGeminiImageConfig + normalizeGeminiImageSize] --> S8
+    S8[Phase 2.2 convertNativeImageChatRequest 注入 imageConfig] --> S9
+    S9[Phase 2.3 Phase 2 单测] --> S10
+    S10[Phase 3.1 convertNativeImageEditRequest 实现 + 4xx/SkipRetry] --> S11
+    S11[Phase 3.2 imports 同步] --> S12
+    S12[Phase 3.3 Phase 3 单测 6 用例] --> S13
+    S13[Phase 4.1 playgroundPayload Gemini native 选项与签名扩展] --> S14
+    S14[Phase 4.2 ImageParameterControl UI 标签条件化 + 默认空值] --> S15
+    S15[Phase 4.3 usePlaygroundState 暴露 imageGenerationMode] --> S16
+    S16[Phase 4.4 透传链路接通] --> S17
+    S17[Phase 4.5 默认值清理 verify] --> S18
+    S18[Phase 4.6 Phase 4 单测] --> S19
+    S19[Phase 5.1 i18n 7 语言 + lint] --> S20
+    S20[Phase 5.2 默认值兜底校验] --> S21
+    S21[Phase 6 单测 + 手工回归 + 最小集成测试] --> END[合并主干]
 ```
 
-> **关键卡点**：Phase 1.1 启用 `SupportsEdits:true` 必须与 Phase 1.4 / 3.1 同一 PR 合入，否则前端 Radio 出现但点击发送会 500（`/pg/images/edits` 落到 adaptor 兜底 error）。**Phase 1 + Phase 2 + Phase 3 是一个不可拆的原子单元**；Phase 4 / 5 可以独立 PR 但建议同一 PR 一起合，避免 UI 标签错位的中间态。
+> **关键卡点**：Phase 1.1 启用 `SupportsEdits:true` 必须与 Phase 1.4 / 1.5 / 3.1 同一 PR 合入，否则前端 Radio 出现但点击发送会 500 或 Vertex 渠道响应格式错误。**Phase 0 + Phase 1 + Phase 2 + Phase 3 是一个不可拆的原子单元**；Phase 4 / 5 可以独立 PR 但建议同一 PR 一起合，避免 UI 标签错位的中间态。§11.3 最小集成测试是合并前门禁，不后置。
 
 ---
 

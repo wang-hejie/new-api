@@ -561,10 +561,11 @@ func getPlaygroundImageGenerationMetadata(modelName string) (string, *Playground
 	name := strings.ToLower(modelName)
 	if common.IsGeminiNativeImageModel(modelName) {
 		return "gemini_native", &PlaygroundImageParameter{
-			Size:           false,
-			Quality:        false,
+			Size:           true,
+			Quality:        true,
 			ResponseFormat: false,
 			NMax:           1,
+			SupportsEdits:  true,
 		}
 	}
 	if name == "gpt-image-1" {
