@@ -24,8 +24,9 @@ import (
 func shouldPassThroughImageRequest(info *relaycommon.RelayInfo) bool {
 	shouldPassThrough := model_setting.GetGlobalSettings().PassThroughRequestEnabled ||
 		info.ChannelSetting.PassThroughBodyEnabled
-	if info.RelayMode == relayconstant.RelayModeImagesGenerations &&
-		common.IsGeminiNativeImageModel(info.UpstreamModelName) {
+	if common.IsGeminiNativeImageModel(info.UpstreamModelName) &&
+		(info.RelayMode == relayconstant.RelayModeImagesGenerations ||
+			info.RelayMode == relayconstant.RelayModeImagesEdits) {
 		return false
 	}
 	return shouldPassThrough

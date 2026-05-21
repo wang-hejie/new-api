@@ -66,6 +66,15 @@ const GENERIC_IMAGE_SIZES = [
   '1536x1024',
   '1024x1536',
 ];
+const GEMINI_NATIVE_ASPECT_RATIOS = [
+  '',
+  '1:1',
+  '4:3',
+  '3:4',
+  '16:9',
+  '9:16',
+  '21:9',
+];
 
 const GPT_IMAGE_QUALITIES = ['auto', 'low', 'medium', 'high'];
 const DALL_E_3_QUALITIES = ['standard', 'hd'];
@@ -77,10 +86,18 @@ const GENERIC_IMAGE_QUALITIES = [
   'medium',
   'high',
 ];
+const GEMINI_NATIVE_IMAGE_SIZES = ['', '1K', '2K', '4K'];
 
-export const getImageSizeOptionsForModel = (model = '', imageParameters) => {
+export const getImageSizeOptionsForModel = (
+  model = '',
+  imageParameters,
+  imageGenerationMode = '',
+) => {
   if (imageParameters?.size === false) {
     return [];
+  }
+  if (imageGenerationMode === 'gemini_native') {
+    return GEMINI_NATIVE_ASPECT_RATIOS;
   }
   if (isGptImageModel(model)) {
     return GPT_IMAGE_SIZES;
@@ -94,9 +111,16 @@ export const getImageSizeOptionsForModel = (model = '', imageParameters) => {
   return GENERIC_IMAGE_SIZES;
 };
 
-export const getImageQualityOptionsForModel = (model = '', imageParameters) => {
+export const getImageQualityOptionsForModel = (
+  model = '',
+  imageParameters,
+  imageGenerationMode = '',
+) => {
   if (imageParameters?.quality === false) {
     return [];
+  }
+  if (imageGenerationMode === 'gemini_native') {
+    return GEMINI_NATIVE_IMAGE_SIZES;
   }
   if (isGptImageModel(model)) {
     return GPT_IMAGE_QUALITIES;
@@ -120,15 +144,28 @@ const getDefaultImageSizeForModel = (model = '') => {
   return '1024x1024';
 };
 
-const sanitizeImageSize = (model = '', size = '', imageParameters) => {
+const sanitizeImageSize = (
+  model = '',
+  size = '',
+  imageParameters,
+  imageGenerationMode = '',
+) => {
   if (imageParameters?.size === false) {
     return '';
   }
   const normalizedSize = typeof size === 'string' ? size.trim() : '';
-  const options = getImageSizeOptionsForModel(model, imageParameters);
+  const options = getImageSizeOptionsForModel(
+    model,
+    imageParameters,
+    imageGenerationMode,
+  );
 
   if (options.includes(normalizedSize)) {
     return normalizedSize;
+  }
+
+  if (imageGenerationMode === 'gemini_native') {
+    return '';
   }
 
   if (isGptImageModel(model) || isDallE3Model(model) || isDallE2Model(model)) {
@@ -138,12 +175,21 @@ const sanitizeImageSize = (model = '', size = '', imageParameters) => {
   return normalizedSize || getDefaultImageSizeForModel(model);
 };
 
-const sanitizeImageQuality = (model = '', quality = '', imageParameters) => {
+const sanitizeImageQuality = (
+  model = '',
+  quality = '',
+  imageParameters,
+  imageGenerationMode = '',
+) => {
   if (imageParameters?.quality === false) {
     return '';
   }
   const normalizedQuality = typeof quality === 'string' ? quality.trim() : '';
-  const options = getImageQualityOptionsForModel(model, imageParameters);
+  const options = getImageQualityOptionsForModel(
+    model,
+    imageParameters,
+    imageGenerationMode,
+  );
 
   if (isDallE2Model(model)) {
     return '';
@@ -151,6 +197,10 @@ const sanitizeImageQuality = (model = '', quality = '', imageParameters) => {
 
   if (options.includes(normalizedQuality)) {
     return normalizedQuality;
+  }
+
+  if (imageGenerationMode === 'gemini_native') {
+    return '';
   }
 
   if (isGptImageModel(model)) {
@@ -297,15 +347,18 @@ export const buildImageGenerationPayload = (messages, inputs) => {
   const lastUserMessage = getLastUserMessage(messages);
   const prompt = getTextContent(lastUserMessage).trim();
   const imageParameters = inputs.imageParameters;
+  const imageGenerationMode = inputs.imageGenerationMode || '';
   const size = sanitizeImageSize(
     inputs.model,
     inputs.prompt_size,
     imageParameters,
+    imageGenerationMode,
   );
   const quality = sanitizeImageQuality(
     inputs.model,
     inputs.prompt_quality,
     imageParameters,
+    imageGenerationMode,
   );
   const responseFormat = sanitizeImageResponseFormat(
     inputs.model,
@@ -349,6 +402,7 @@ export const buildImageEditPayload = (messages, inputs) => {
   const lastUserMessage = getLastUserMessage(messages);
   const prompt = getTextContent(lastUserMessage).trim();
   const imageParameters = inputs.imageParameters;
+  const imageGenerationMode = inputs.imageGenerationMode || '';
   const referenceFiles = getImageReferenceFiles(inputs);
 
   if (!prompt) {
@@ -362,11 +416,13 @@ export const buildImageEditPayload = (messages, inputs) => {
     inputs.model,
     inputs.prompt_size,
     imageParameters,
+    imageGenerationMode,
   );
   const quality = sanitizeImageQuality(
     inputs.model,
     inputs.prompt_quality,
     imageParameters,
+    imageGenerationMode,
   );
   const imageCount = sanitizeImageCount(
     inputs.prompt_n,

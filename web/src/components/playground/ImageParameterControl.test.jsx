@@ -49,9 +49,10 @@ mock.module('@douyinfe/semi-ui', () => ({
       Item: ({ text }) => React.createElement('button', null, text),
     },
   ),
-  Select: ({ optionList = [] }) =>
+  Select: ({ optionList = [], value = '' }) =>
     React.createElement(
       'select',
+      { 'data-value': value },
       null,
       optionList.map((option) =>
         React.createElement(
@@ -103,10 +104,26 @@ mock.module('lucide-react', () => ({
 }));
 
 const playgroundImageHelpers = {
-  getImageSizeOptionsForModel: (_model = '', imageParameters) =>
-    imageParameters?.size === false ? [] : ['1024x1024'],
-  getImageQualityOptionsForModel: (_model = '', imageParameters) =>
-    imageParameters?.quality === false ? [] : ['auto'],
+  getImageSizeOptionsForModel: (
+    _model = '',
+    imageParameters,
+    imageGenerationMode = '',
+  ) => {
+    if (imageParameters?.size === false) return [];
+    if (imageGenerationMode === 'gemini_native') {
+      return ['', '1:1', '4:3', '3:4', '16:9', '9:16', '21:9'];
+    }
+    return ['1024x1024'];
+  },
+  getImageQualityOptionsForModel: (
+    _model = '',
+    imageParameters,
+    imageGenerationMode = '',
+  ) => {
+    if (imageParameters?.quality === false) return [];
+    if (imageGenerationMode === 'gemini_native') return ['', '1K', '2K', '4K'];
+    return ['auto'];
+  },
   isGptImageModel: (model = '') => model.toLowerCase().startsWith('gpt-image-'),
   buildImageResponseContent: (responseData) => {
     const imageData = Array.isArray(responseData?.data)
@@ -209,6 +226,72 @@ describe('ImageParameterControl', () => {
     expect(html).toContain('max="1"');
   });
 
+  test('renders Gemini native aspect ratio and resolution labels', async () => {
+    const { default: ImageParameterControl } = await import(
+      './ImageParameterControl'
+    );
+
+    const html = renderToStaticMarkup(
+      <ImageParameterControl
+        inputs={{
+          model: 'gemini-3.1-flash-image-preview',
+          prompt_size: '9:16',
+          prompt_quality: '2K',
+          prompt_n: 1,
+          imageGenerationMode: 'gemini_native',
+          imageParameters: {
+            size: true,
+            quality: true,
+            response_format: false,
+            n_max: 1,
+            supports_edits: true,
+          },
+        }}
+        onInputChange={() => {}}
+      />,
+    );
+
+    expect(html).toContain('宽高比');
+    expect(html).toContain('图像分辨率');
+    expect(html).toContain('默认（不发送）');
+    expect(html).toContain('9:16（竖屏）');
+    expect(html).toContain('2K');
+    expect(html).not.toContain('图像尺寸');
+    expect(html).not.toContain('图像质量');
+    expect(html).not.toContain('返回格式');
+  });
+
+  test('shows default value when stored Gemini size or quality is invalid', async () => {
+    const { default: ImageParameterControl } = await import(
+      './ImageParameterControl'
+    );
+
+    const html = renderToStaticMarkup(
+      <ImageParameterControl
+        inputs={{
+          model: 'gemini-3.1-flash-image-preview',
+          prompt_size: '1024x1024',
+          prompt_quality: 'auto',
+          prompt_n: 1,
+          imageGenerationMode: 'gemini_native',
+          imageParameters: {
+            size: true,
+            quality: true,
+            response_format: false,
+            n_max: 1,
+            supports_edits: true,
+          },
+        }}
+        onInputChange={() => {}}
+      />,
+    );
+
+    expect(html).toContain('宽高比');
+    expect(html).toContain('图像分辨率');
+    expect(html).toContain('默认（不发送）');
+    expect(html).toContain('data-value=""');
+  });
+
   test('keeps generic image controls when no capability metadata is present', async () => {
     const { default: ImageParameterControl } = await import(
       './ImageParameterControl'
@@ -290,5 +373,9 @@ describe('ImageParameterControl', () => {
 
     expect(html).not.toContain('参考用途');
     expect(html).not.toContain('返回格式');
+    expect(html).toContain('图像尺寸');
+    expect(html).toContain('图像质量');
+    expect(html).not.toContain('宽高比');
+    expect(html).not.toContain('图像分辨率');
   });
 });
