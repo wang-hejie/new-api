@@ -252,6 +252,11 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
+	if common.IsGeminiNativeImageModel(info.UpstreamModelName) &&
+		(info.RelayMode == constant.RelayModeImagesGenerations ||
+			info.RelayMode == constant.RelayModeImagesEdits) {
+		req.Set("Content-Type", "application/json")
+	}
 	if info.ChannelOtherSettings.VertexKeyType != dto.VertexKeyTypeAPIKey {
 		accessToken, err := getAccessToken(a, info)
 		if err != nil {
@@ -389,7 +394,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			if info.RelayMode == constant.RelayModeGemini {
 				return gemini.GeminiTextGenerationHandler(c, info, resp)
 			} else {
-				if info.RelayMode == constant.RelayModeImagesGenerations && common.IsGeminiNativeImageModel(info.UpstreamModelName) {
+				if common.IsGeminiNativeImageModel(info.UpstreamModelName) &&
+					(info.RelayMode == constant.RelayModeImagesGenerations ||
+						info.RelayMode == constant.RelayModeImagesEdits) {
 					return gemini.GeminiNativeImageChatHandler(c, info, resp)
 				}
 				if strings.HasPrefix(info.UpstreamModelName, "imagen") {

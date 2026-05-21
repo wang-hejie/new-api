@@ -10,7 +10,7 @@
 5. 用「gh pr create --base main --head develop --title <release: subject> --body <符合本项目模板的发布说明>」创建 PR，标题统一以「release:」前缀，记下 PR 编号
    - PR body 必须严格使用「.github/PULL_REQUEST_TEMPLATE.md」结构，「📝 变更描述 / Description」中列出本次合入的主要功能、修复与影响范围（含三库兼容、计费、上游 Channel 兼容性等关注点），「🚀 变更类型 / Type of change」按实际勾选，「✅ 提交前检查项 / Checklist」逐条确认勾选
    - 描述必须是人工口吻的中文摘要，禁止粘贴未经整理的 AI 输出；PR 标题与正文中均严禁出现「🤖 Generated with Claude Code」「Generated with Claude Code」等被 anti-slop 拦截的字样
-6. 用 TaskCreate 建立监控任务，持续轮询「gh pr view <PR编号> --json state,mergeStateStatus,reviewDecision,statusCheckRollup,labels」，间隔 90 秒，最多等 60 分钟，每轮打印 state/merge/review + 各 check 名称及状态 + 是否被打上「pr-check-failed」标签
+6. 先单次执行「gh pr view <PR编号> --json state,mergeStateStatus,reviewDecision,statusCheckRollup,labels」实测：若 statusCheckRollup 为空 且 mergeStateStatus=CLEAN 且 labels 无「pr-check-failed」，直接跳到步骤 9 合并，禁止追究「为何 PR Check 未触发」「workflow 是否在 base 分支存在」「Actions 是否启用」等无关问题（gh pr view 的实测是判定可合并的唯一信源）；否则用 TaskCreate 建立监控任务，持续轮询同一命令，间隔 90 秒，最多等 60 分钟，每轮打印 state/merge/review + 各 check 名称及状态 + 是否被打上「pr-check-failed」标签
 7. 任一 check 出现 FAILURE/TIMED_OUT/CANCELLED/ACTION_REQUIRED，或 PR 出现「pr-check-failed」标签、被自动关闭，立即停止轮询：
    - 若是「PR Check」失败（anti-slop，多数源于 PR body 不符合模板或被识别为纯 AI 内容）：用「gh pr edit <PR编号> --title ... --body ...」按模板补全/重写后用「gh pr reopen <PR编号>」重新打开，再次进入轮询
    - 若是代码类失败：develop->main 阶段不在本流程内修复，向用户报告失败原因和「gh run view <runId> --log-failed」结果，由用户决定是回 develop 修还是放弃发布

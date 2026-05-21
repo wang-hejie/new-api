@@ -21,6 +21,10 @@ func TestGeminiNativeImageGeneration_BypassesPassThrough(t *testing.T) {
 	nativeInfo := newImageRelayInfoForPassThroughTest("gemini-3.1-flash-image-preview")
 	require.False(t, shouldPassThroughImageRequest(nativeInfo))
 
+	nativeEditInfo := newImageRelayInfoForPassThroughTest("gemini-3.1-flash-image-preview")
+	nativeEditInfo.RelayMode = relayconstant.RelayModeImagesEdits
+	require.False(t, shouldPassThroughImageRequest(nativeEditInfo))
+
 	imagenInfo := newImageRelayInfoForPassThroughTest("imagen-3.0-generate-001")
 	require.True(t, shouldPassThroughImageRequest(imagenInfo))
 

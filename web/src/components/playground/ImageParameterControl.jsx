@@ -27,6 +27,7 @@ import {
 } from '../../helpers';
 
 const labelByValue = {
+  '': '默认（不发送）',
   auto: '自动',
   standard: '标准',
   hd: '高清',
@@ -35,6 +36,15 @@ const labelByValue = {
   high: '高',
   url: 'URL',
   b64_json: 'Base64 JSON',
+  '1:1': '1:1（方形）',
+  '4:3': '4:3',
+  '3:4': '3:4',
+  '16:9': '16:9（宽屏）',
+  '9:16': '9:16（竖屏）',
+  '21:9': '21:9（超宽）',
+  '1K': '1K（默认）',
+  '2K': '2K',
+  '4K': '4K',
 };
 
 const toOptionList = (values, t) =>
@@ -43,25 +53,44 @@ const toOptionList = (values, t) =>
     label: t(labelByValue[value] || value),
   }));
 
+const normalizeSelectValue = (value, options) =>
+  options.some((option) => option.value === value) ? value : '';
+
 const ImageParameterControl = ({ inputs, onInputChange, disabled = false }) => {
   const { t } = useTranslation();
   const imageParameters = inputs.imageParameters;
+  const isGeminiNative = inputs.imageGenerationMode === 'gemini_native';
   const sizeOptions = useMemo(
     () =>
       toOptionList(
-        getImageSizeOptionsForModel(inputs.model, imageParameters),
+        getImageSizeOptionsForModel(
+          inputs.model,
+          imageParameters,
+          inputs.imageGenerationMode,
+        ),
         t,
       ),
-    [inputs.model, imageParameters, t],
+    [inputs.model, imageParameters, inputs.imageGenerationMode, t],
   );
   const qualityOptions = useMemo(
     () =>
       toOptionList(
-        getImageQualityOptionsForModel(inputs.model, imageParameters),
+        getImageQualityOptionsForModel(
+          inputs.model,
+          imageParameters,
+          inputs.imageGenerationMode,
+        ),
         t,
       ),
-    [inputs.model, imageParameters, t],
+    [inputs.model, imageParameters, inputs.imageGenerationMode, t],
   );
+  const sizeValue = normalizeSelectValue(inputs.prompt_size, sizeOptions);
+  const qualityValue = normalizeSelectValue(
+    inputs.prompt_quality,
+    qualityOptions,
+  );
+  const sizeLabel = isGeminiNative ? t('宽高比') : t('图像尺寸');
+  const qualityLabel = isGeminiNative ? t('图像分辨率') : t('图像质量');
   const maxImageCount = imageParameters?.n_max || undefined;
   const isCountLocked = maxImageCount === 1;
 
@@ -73,11 +102,11 @@ const ImageParameterControl = ({ inputs, onInputChange, disabled = false }) => {
             <div className='flex items-center gap-2 mb-2'>
               <Image size={16} className='text-gray-500' />
               <Typography.Text strong className='text-sm'>
-                {t('图像尺寸')}
+                {sizeLabel}
               </Typography.Text>
             </div>
             <Select
-              value={inputs.prompt_size}
+              value={sizeValue}
               optionList={sizeOptions}
               onChange={(value) => onInputChange('prompt_size', value)}
               style={{ width: '100%' }}
@@ -92,11 +121,11 @@ const ImageParameterControl = ({ inputs, onInputChange, disabled = false }) => {
             <div className='flex items-center gap-2 mb-2'>
               <SlidersHorizontal size={16} className='text-gray-500' />
               <Typography.Text strong className='text-sm'>
-                {t('图像质量')}
+                {qualityLabel}
               </Typography.Text>
             </div>
             <Select
-              value={inputs.prompt_quality}
+              value={qualityValue}
               optionList={qualityOptions}
               onChange={(value) => onInputChange('prompt_quality', value)}
               style={{ width: '100%' }}

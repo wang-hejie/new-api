@@ -135,11 +135,17 @@ func TestPlaygroundGeminiNativeImageMetadata(t *testing.T) {
 			if params == nil {
 				t.Fatalf("params is nil")
 			}
-			if params.Size || params.Quality || params.ResponseFormat {
-				t.Fatalf("params = %#v, want size/quality/response_format disabled", params)
+			if !params.Size || !params.Quality {
+				t.Fatalf("params = %#v, want size/quality enabled", params)
+			}
+			if params.ResponseFormat {
+				t.Fatalf("params = %#v, want response_format disabled", params)
 			}
 			if params.NMax != 1 {
 				t.Fatalf("n_max = %d, want 1", params.NMax)
+			}
+			if !params.SupportsEdits {
+				t.Fatalf("supports_edits = false, want true")
 			}
 		})
 	}
@@ -237,10 +243,11 @@ func TestPlaygroundModelInfoGeminiNativeImageJSONShape(t *testing.T) {
 		`"endpoint_types":["image-generation","gemini","openai"]`,
 		`"image_generation_mode":"gemini_native"`,
 		`"image_parameters":{`,
-		`"size":false`,
-		`"quality":false`,
+		`"size":true`,
+		`"quality":true`,
 		`"response_format":false`,
 		`"n_max":1`,
+		`"supports_edits":true`,
 	} {
 		if !strings.Contains(bodyText, want) {
 			t.Fatalf("JSON %s does not contain %s", bodyText, want)

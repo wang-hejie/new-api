@@ -131,6 +131,7 @@ export const usePlaygroundState = () => {
     [models, inputs.model],
   );
   const imageParameters = selectedModelOption?.imageParameters;
+  const imageGenerationMode = selectedModelOption?.imageGenerationMode || '';
   const imageRequestMode = useMemo(() => {
     const supportsEdits = selectedModelOption?.imageParameters?.supports_edits;
     const persisted =
@@ -144,9 +145,10 @@ export const usePlaygroundState = () => {
     () => ({
       ...inputs,
       imageParameters,
+      imageGenerationMode,
       imageRequestMode,
     }),
-    [inputs, imageParameters, imageRequestMode],
+    [inputs, imageParameters, imageGenerationMode, imageRequestMode],
   );
 
   useEffect(() => {
