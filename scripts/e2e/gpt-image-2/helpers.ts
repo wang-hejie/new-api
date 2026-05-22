@@ -92,7 +92,10 @@ export async function openPlayground(
   options: PlaygroundConfigOptions = {},
 ) {
   await loginPageByApi(page, user);
-  const config = buildPlaygroundConfig(options);
+  const config = buildPlaygroundConfig({
+    ...options,
+    group: options.group || user.group || 'default',
+  });
   const seedId = `${Date.now()}-${Math.random()}`;
   await page.addInitScript(
     ({ storedConfig, seedId: currentSeedId }) => {
@@ -199,14 +202,43 @@ export async function selectSemiOptionNearLabel(
   option: string,
 ) {
   const labelNode = page.getByText(label, { exact: true }).first();
-  const container = labelNode.locator('xpath=ancestor::div[contains(@class, "mb-2")]/following-sibling::*[1]');
-  await container.locator('.semi-select, .semi-select-selection').first().click();
-  await page.locator('.semi-select-option').filter({ hasText: option }).first().click();
+  const container = labelNode.locator(
+    'xpath=ancestor::div[contains(@class, "mb-2")]/following-sibling::*[1]',
+  );
+  await container
+    .locator('.semi-select, .semi-select-selection')
+    .first()
+    .click();
+  await page
+    .locator('.semi-select-option')
+    .filter({ hasText: option })
+    .first()
+    .click();
+}
+
+export async function semiOptionsNearLabel(page: Page, label: string) {
+  const labelNode = page.getByText(label, { exact: true }).first();
+  const container = labelNode.locator(
+    'xpath=ancestor::div[contains(@class, "mb-2")]/following-sibling::*[1]',
+  );
+  await container
+    .locator('.semi-select, .semi-select-selection')
+    .first()
+    .click();
+  const options = page.locator('.semi-select-option');
+  await expect(options.first()).toBeVisible();
+  const labels = await options.evaluateAll((nodes) =>
+    nodes.map((node) => node.textContent?.trim() || ''),
+  );
+  await page.keyboard.press('Escape');
+  return labels;
 }
 
 export async function setImageCount(page: Page, value: number) {
   const labelNode = page.getByText('图像数量', { exact: true }).first();
-  const container = labelNode.locator('xpath=ancestor::div[contains(@class, "mb-2")]/following-sibling::*[1]');
+  const container = labelNode.locator(
+    'xpath=ancestor::div[contains(@class, "mb-2")]/following-sibling::*[1]',
+  );
   const input = container.locator('input').first();
   await input.fill(String(value));
   await input.blur();

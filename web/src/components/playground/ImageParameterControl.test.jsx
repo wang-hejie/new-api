@@ -116,13 +116,16 @@ const playgroundImageHelpers = {
     return ['1024x1024'];
   },
   getImageQualityOptionsForModel: (
-    _model = '',
+    model = '',
     imageParameters,
     imageGenerationMode = '',
   ) => {
     if (imageParameters?.quality === false) return [];
     if (imageGenerationMode === 'gemini_native') return ['', '1K', '2K', '4K'];
-    return ['auto'];
+    if (model.toLowerCase().startsWith('gpt-image-')) {
+      return ['auto', 'low', 'medium'];
+    }
+    return ['auto', 'standard', 'hd', 'low', 'medium', 'high'];
   },
   isGptImageModel: (model = '') => model.toLowerCase().startsWith('gpt-image-'),
   buildImageResponseContent: (responseData) => {
@@ -377,5 +380,39 @@ describe('ImageParameterControl', () => {
     expect(html).toContain('图像质量');
     expect(html).not.toContain('宽高比');
     expect(html).not.toContain('图像分辨率');
+  });
+
+  test('renders gpt-image quality options without high and clears stored high', async () => {
+    const { default: ImageParameterControl } = await import(
+      './ImageParameterControl'
+    );
+
+    const html = renderToStaticMarkup(
+      <ImageParameterControl
+        inputs={{
+          model: 'gpt-image-2',
+          prompt_size: '1024x1024',
+          prompt_quality: 'high',
+          prompt_n: 1,
+          prompt_response_format: 'url',
+          imageRequestMode: 'generation',
+          imageParameters: {
+            size: true,
+            quality: true,
+            response_format: false,
+            n_max: 10,
+            supports_edits: true,
+          },
+        }}
+        onInputChange={() => {}}
+      />,
+    );
+
+    expect(html).toContain('图像质量');
+    expect(html).toContain('<option value="auto">自动</option>');
+    expect(html).toContain('<option value="low">低</option>');
+    expect(html).toContain('<option value="medium">中</option>');
+    expect(html).toContain('data-value=""');
+    expect(html).not.toContain('<option value="high">高</option>');
   });
 });

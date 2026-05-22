@@ -76,7 +76,7 @@ const GEMINI_NATIVE_ASPECT_RATIOS = [
   '21:9',
 ];
 
-const GPT_IMAGE_QUALITIES = ['auto', 'low', 'medium', 'high'];
+const GPT_IMAGE_QUALITIES = ['auto', 'low', 'medium'];
 const DALL_E_3_QUALITIES = ['standard', 'hd'];
 const GENERIC_IMAGE_QUALITIES = [
   'auto',
