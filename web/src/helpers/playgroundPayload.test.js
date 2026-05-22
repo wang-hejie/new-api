@@ -232,6 +232,38 @@ describe('playground payload helpers', () => {
     ).toEqual(['', '1K', '2K', '4K']);
   });
 
+  test('getImageQualityOptionsForModel drops high for gpt-image series', () => {
+    const imageParameters = {
+      size: true,
+      quality: true,
+      response_format: false,
+      n_max: 10,
+      supports_edits: true,
+    };
+
+    expect(
+      getImageQualityOptionsForModel(
+        'gpt-image-2',
+        imageParameters,
+        'gpt_image_v2',
+      ),
+    ).toEqual(['auto', 'low', 'medium']);
+    expect(
+      getImageQualityOptionsForModel(
+        'gpt-image-1',
+        imageParameters,
+        'gpt_image_v1',
+      ),
+    ).toEqual(['auto', 'low', 'medium']);
+    expect(
+      getImageQualityOptionsForModel(
+        'gpt-image-1-mini',
+        imageParameters,
+        'gpt_image_v1',
+      ),
+    ).toEqual(['auto', 'low', 'medium']);
+  });
+
   test('buildImagePayload applies partial image_parameters capabilities', () => {
     const payload = buildImagePayload(
       [
@@ -416,6 +448,43 @@ describe('playground payload helpers', () => {
     expect(futureGptImagePayload.response_format).toBe('url');
   });
 
+  test('legacy high quality falls back to auto for gpt-image series', () => {
+    const imageParameters = {
+      size: true,
+      quality: true,
+      response_format: false,
+      n_max: 10,
+      supports_edits: true,
+    };
+    const messages = [
+      {
+        role: MESSAGE_ROLES.USER,
+        content: 'draw a clean product photo',
+      },
+    ];
+
+    const generationPayload = buildImageGenerationPayload(messages, {
+      ...baseInputs,
+      model: 'gpt-image-2',
+      prompt_quality: 'high',
+      imageParameters,
+    });
+    expect(generationPayload.quality).toBe('auto');
+
+    const file = new File(['image bytes'], 'reference.png', {
+      type: 'image/png',
+    });
+    const editPayload = buildImageEditPayload(messages, {
+      ...baseInputs,
+      model: 'gpt-image-2',
+      prompt_quality: 'high',
+      image_reference_files: [file],
+      imageParameters,
+    });
+    expect(editPayload.formData.get('quality')).toBe('auto');
+    expect(editPayload.debugSnapshot.fields.quality).toBe('auto');
+  });
+
   test('buildImageGenerationPayload sends Gemini aspect ratio and image size through size and quality fields', () => {
     const payload = buildImageGenerationPayload(
       [
@@ -578,7 +647,7 @@ describe('playground payload helpers', () => {
         ...baseInputs,
         model: 'gpt-image-2',
         prompt_size: 'auto',
-        prompt_quality: 'high',
+        prompt_quality: 'medium',
         prompt_response_format: 'url',
         [legacyReferenceUsageField]: 'invalid-usage',
         image_reference_files: [file],

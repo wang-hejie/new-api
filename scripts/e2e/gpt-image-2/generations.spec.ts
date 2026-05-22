@@ -44,6 +44,7 @@ test.describe.serial('gpt-image-2 generations', () => {
     await openPlayground(page, state.user, {
       model: 'gpt-image-2',
       imageRequestMode: 'generation',
+      quality: 'high',
       responseFormat: 'b64_json',
       showDebugPanel: true,
     });
@@ -64,10 +65,11 @@ test.describe.serial('gpt-image-2 generations', () => {
     const body = JSON.parse(request.postData() || '{}');
     expect(body).toMatchObject({
       model: 'gpt-image-2',
-      group: 'default',
+      group: state.user.group,
       prompt: 'a single red apple on a white table',
       n: 1,
       size: '1024x1024',
+      quality: 'auto',
     });
     expect(body).not.toHaveProperty('response_format');
     expect(body).not.toHaveProperty(referenceUsageField);
@@ -82,6 +84,7 @@ test.describe.serial('gpt-image-2 generations', () => {
       model: 'gpt-image-2',
       prompt: 'a single red apple on a white table',
       n: 1,
+      quality: 'auto',
     });
     expect(echo.latest.json).not.toHaveProperty('response_format');
     expect(echo.latest.json).not.toHaveProperty(referenceUsageField);

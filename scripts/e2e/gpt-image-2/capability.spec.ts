@@ -4,7 +4,12 @@ import {
   prepareFixtures,
   type E2EFixtureState,
 } from './fixtures';
-import { openPlayground, radioCard } from './helpers';
+import {
+  openPlayground,
+  radioCard,
+  semiOptionsNearLabel,
+  setImageMode,
+} from './helpers';
 
 test.describe.serial('playground image capability metadata', () => {
   let state: E2EFixtureState;
@@ -48,6 +53,30 @@ test.describe.serial('playground image capability metadata', () => {
     expect(selectedStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
   });
 
+  test('gpt-image-2 quality dropdown omits high in generation and edit modes', async ({
+    page,
+  }) => {
+    await openPlayground(page, state.user, {
+      model: 'gpt-image-2',
+      imageRequestMode: 'generation',
+      quality: 'high',
+    });
+
+    await expect(page.getByText('图像质量')).toBeVisible();
+    await expect(semiOptionsNearLabel(page, '图像质量')).resolves.toEqual([
+      '自动',
+      '低',
+      '中',
+    ]);
+
+    await setImageMode(page, '图生图');
+    await expect(semiOptionsNearLabel(page, '图像质量')).resolves.toEqual([
+      '自动',
+      '低',
+      '中',
+    ]);
+  });
+
   test('gpt-image-1 keeps edits but hides response_format', async ({ page }) => {
     await openPlayground(page, state.user, { model: 'gpt-image-1' });
     await expect(page.getByText('请求方式')).toBeVisible();
@@ -55,11 +84,12 @@ test.describe.serial('playground image capability metadata', () => {
     await expect(page.getByText('返回格式')).toHaveCount(0);
   });
 
-  test('gemini native image hides edits and locks n=1', async ({ page }) => {
+  test('gemini native image keeps edits and locks n=1', async ({ page }) => {
     await openPlayground(page, state.user, {
       model: 'gemini-3.1-flash-image-preview',
     });
-    await expect(page.getByText('请求方式')).toHaveCount(0);
+    await expect(page.getByText('请求方式')).toBeVisible();
+    await expect(page.getByText('图生图')).toBeVisible();
     await expect(page.getByText('返回格式')).toHaveCount(0);
     await expect(
       page.getByText('Gemini 图像模型一次只生成 1 张图').first(),
