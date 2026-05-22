@@ -34,6 +34,7 @@ export type E2EFixtureState = {
   user: E2EUser;
   channelId: number;
   createdUserByDb: boolean;
+  fixtureGroup: string;
   originalModelPrice: string | null;
   originalPassThroughRequestEnabled: string | null;
   originalPassThroughRequestEnabledExists: boolean;
@@ -112,13 +113,48 @@ function sqlString(value: string) {
 }
 
 function getDbOptionValue(key: string) {
-  const rows = psqlRows(
-    `SELECT value FROM options WHERE key = ${sqlString(key)} LIMIT 1;`,
+  const value = psqlOutput(
+    `SELECT encode(convert_to(value, 'UTF8'), 'base64') FROM options WHERE key = ${sqlString(key)} LIMIT 1;`,
   );
-  if (rows.length === 0) {
+  if (!value) {
     return { exists: false, value: null };
   }
-  return { exists: true, value: rows[0] };
+  return { exists: true, value: Buffer.from(value, 'base64').toString('utf8') };
+}
+
+function parseDbJsonMap(key: string) {
+  const option = getDbOptionValue(key);
+  if (!option.value) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(option.value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function resolveE2EGroupFromDb() {
+  if (process.env.E2E_GROUP) {
+    return process.env.E2E_GROUP;
+  }
+
+  const groupRatios = parseDbJsonMap('GroupRatio');
+  const usableGroups = parseDbJsonMap('UserUsableGroups');
+  const ratioGroups = Object.keys(groupRatios);
+  const usableGroupNames = Object.keys(usableGroups);
+
+  if (ratioGroups.includes('default') && usableGroupNames.includes('default')) {
+    return 'default';
+  }
+
+  const usableRatioGroup = ratioGroups.find((group) =>
+    usableGroupNames.includes(group),
+  );
+  return usableRatioGroup || ratioGroups[0] || usableGroupNames[0] || 'default';
 }
 
 function deleteDbOption(key: string) {
@@ -219,21 +255,22 @@ function authHeaders(user: E2EUser) {
   return headers;
 }
 
-async function createE2EUserIfMissing() {
+async function createE2EUserIfMissing(group: string) {
   if (process.env.E2E_ROOT_USER && process.env.E2E_ROOT_PASS) {
     return false;
   }
   const escapedHash = DEFAULT_TEST_PASS_HASH.split("'").join("''");
   const escapedUser = TEST_USER.split("'").join("''");
+  const escapedGroup = group.split("'").join("''");
   psql(`
     INSERT INTO users (username, password, display_name, role, status, quota, "group", setting, aff_code, access_token)
-    VALUES ('${escapedUser}', '${escapedHash}', 'E2E Root User', 100, 1, 100000000, 'default', '{}', 'E2E1', '${TEST_ACCESS_TOKEN}')
+    VALUES ('${escapedUser}', '${escapedHash}', 'E2E Root User', 100, 1, 100000000, '${escapedGroup}', '{}', 'E2E1', '${TEST_ACCESS_TOKEN}')
     ON CONFLICT (username) DO UPDATE
       SET password = EXCLUDED.password,
           role = 100,
           status = 1,
           quota = 100000000,
-          "group" = 'default',
+          "group" = EXCLUDED."group",
           access_token = EXCLUDED.access_token;
   `);
   return true;
@@ -293,7 +330,11 @@ async function deleteE2EChannels(api: APIRequestContext, user: E2EUser) {
   }
 }
 
-async function createMockChannel(api: APIRequestContext, user: E2EUser) {
+async function createMockChannel(
+  api: APIRequestContext,
+  user: E2EUser,
+  group: string,
+) {
   const weight = 1000;
   const priority = 1000;
   const response = await api.post('/api/channel/', {
@@ -310,7 +351,7 @@ async function createMockChannel(api: APIRequestContext, user: E2EUser) {
         name: `${PREFIX}mock_gpt_image_2`,
         base_url: CHANNEL_BASE_URL,
         models: TEST_MODELS.join(','),
-        group: 'default',
+        group,
         priority,
         weight,
         auto_ban: 0,
@@ -436,6 +477,7 @@ async function assertModelMetadata(api: APIRequestContext, user: E2EUser) {
 }
 
 export async function prepareFixtures(): Promise<E2EFixtureState> {
+  const fixtureGroup = resolveE2EGroupFromDb();
   const setupApi = await createApiContext();
   const setup = await setupApi.get('/api/setup');
   const setupBody = await assertApiOk(setup);
@@ -453,9 +495,10 @@ export async function prepareFixtures(): Promise<E2EFixtureState> {
   }
   await setupApi.dispose();
 
-  const createdUserByDb = await createE2EUserIfMissing();
+  const createdUserByDb = await createE2EUserIfMissing(fixtureGroup);
   const api = await createApiContext();
   const user = getFixtureUserFromDb() || (await login(api));
+  const channelGroup = user.group || fixtureGroup;
   let passThroughState:
     | Pick<
         E2EFixtureState,
@@ -467,13 +510,14 @@ export async function prepareFixtures(): Promise<E2EFixtureState> {
     await deleteE2EChannels(api, user);
     passThroughState = await forceDisableGlobalPassThrough(api, user);
     const originalModelPrice = await ensureImageModelPrices(api, user);
-    const channelId = await createMockChannel(api, user);
+    const channelId = await createMockChannel(api, user, channelGroup);
     await assertChannelHealthy(api, user, channelId);
     await assertModelMetadata(api, user);
     return {
       user,
       channelId,
       createdUserByDb,
+      fixtureGroup: channelGroup,
       originalModelPrice,
       ...passThroughState,
     };

@@ -40,6 +40,7 @@ test.describe.serial('gpt-image-2 edits', () => {
     await openPlayground(page, state.user, {
       model: 'gpt-image-2',
       imageRequestMode: 'edit',
+      quality: 'high',
       responseFormat: 'url',
       showDebugPanel: true,
     });
@@ -125,11 +126,11 @@ test.describe.serial('gpt-image-2 edits', () => {
       model: 'gpt-image-2',
       imageRequestMode: 'edit',
       size: '1024x1536',
-      quality: 'high',
+      quality: 'medium',
       n: 2,
     });
     await selectSemiOptionNearLabel(page, '图像尺寸', '1024x1536');
-    await selectSemiOptionNearLabel(page, '图像质量', '高');
+    await selectSemiOptionNearLabel(page, '图像质量', '中');
     await setImageCount(page, 2);
     await uploadReference(page, imageTestAsset('apple_red.png'));
     const imageCountBeforeSend = await assistantImages(page).count();
@@ -152,7 +153,7 @@ test.describe.serial('gpt-image-2 edits', () => {
       prompt: ['create two tall high quality apple variants'],
       n: ['2'],
       size: ['1024x1536'],
-      quality: ['high'],
+      quality: ['medium'],
     });
     expect(echo.latest.fields).not.toHaveProperty('group');
     expect(echo.latest.fields).not.toHaveProperty('response_format');
